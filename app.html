@@ -420,7 +420,6 @@
     <div id="acc-credit-fields" style="display:none;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div class="form-group"><label class="input-label">Límite de crédito</label><input id="acc-limit" class="input" type="number" placeholder="10000"></div>
-        <div class="form-group"><label class="input-label">% Cashback</label><input id="acc-cashback" class="input" type="number" placeholder="1.5" step="0.1"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div class="form-group"><label class="input-label">Día de corte</label><input id="acc-cutoff" class="input" type="number" min="1" max="31" placeholder="25"></div>
@@ -934,7 +933,6 @@ async function renderAccountsList() {
             <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
               <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Disponible</p><p style="font-size:17px;font-weight:700;">${Rates.format(acc.balance, acc.currency)}</p></div>
               <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Límite</p><p style="font-size:17px;font-weight:700;">${Rates.format(acc.credit_limit, acc.currency)}</p></div>
-              ${acc.cashback_rate ? `<div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Cashback</p><p style="font-size:17px;font-weight:700;color:#86EFAC;">${acc.cashback_rate}%</p></div>` : ''}
             </div>
             <div>
               <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
@@ -1250,7 +1248,6 @@ async function saveAccount() {
   const account = { name, type, currency, balance };
   if (type === 'credit') {
     account.credit_limit    = parseFloat(document.getElementById('acc-limit').value) || 0;
-    account.cashback_rate   = parseFloat(document.getElementById('acc-cashback').value) || 0;
     account.cut_off_day     = parseInt(document.getElementById('acc-cutoff').value) || null;
     account.payment_due_day = parseInt(document.getElementById('acc-dueday').value) || null;
     account.credit_reminder_enabled = true;

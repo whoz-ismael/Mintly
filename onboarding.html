@@ -48,10 +48,15 @@
       padding:18px 14px; border-radius:16px; border:2px solid var(--border);
       background:var(--surface); cursor:pointer; text-align:center; transition:all 0.2s;
     }
-    .type-card:active, .type-card.sel { border-color:var(--accent); background:var(--accent-bg); }
     .type-card .tc-icon  { font-size:32px; display:block; margin-bottom:8px; }
-    .type-card .tc-label { font-size:14px; font-weight:700; color:var(--text1); }
-    .type-card .tc-desc  { font-size:11px; color:var(--text3); margin-top:3px; }
+    .type-card .tc-label { font-size:14px; font-weight:700; color:var(--text1); transition:color 0.2s; }
+    .type-card .tc-desc  { font-size:11px; color:var(--text3); margin-top:3px; transition:color 0.2s; }
+    /* Seleccionado: fondo accent solido, texto siempre blanco */
+    .type-card.sel { border-color:var(--accent); background:var(--accent); }
+    .type-card.sel .tc-label { color:#ffffff; }
+    .type-card.sel .tc-desc  { color:rgba(255,255,255,0.75); }
+    /* Hover sin seleccionar */
+    .type-card:not(.sel):active { border-color:var(--accent); background:var(--accent-bg); }
 
     /* Form */
     .fg { margin-bottom:14px; }
@@ -293,12 +298,8 @@
     </div>
     <!-- Crédito -->
     <div id="m-credit" style="display:none;">
-      <div class="grid2">
-        <div class="fg"><label class="lbl">Límite de crédito</label>
-          <input id="m-limit" type="number" placeholder="10000"></div>
-        <div class="fg"><label class="lbl">% Cashback</label>
-          <input id="m-cashback" type="number" placeholder="1.5" step="0.1"></div>
-      </div>
+      <div class="fg"><label class="lbl">Límite de crédito</label>
+        <input id="m-limit" type="number" placeholder="10000"></div>
       <div class="grid2">
         <div class="fg"><label class="lbl">Día de corte</label>
           <input id="m-cutoff" type="number" min="1" max="31" placeholder="25"></div>
@@ -534,7 +535,6 @@ window.saveAccount = async function() {
   var acc = { user_id: userId, name, type, currency, balance };
   if (type === 'credit') {
     acc.credit_limit     = parseFloat(document.getElementById('m-limit').value)    || 0;
-    acc.cashback_rate    = parseFloat(document.getElementById('m-cashback').value)  || 0;
     acc.cut_off_day      = parseInt(document.getElementById('m-cutoff').value)      || null;
     acc.payment_due_day  = parseInt(document.getElementById('m-dueday').value)      || null;
     acc.credit_reminder_enabled = true;

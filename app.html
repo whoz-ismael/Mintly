@@ -52,13 +52,6 @@
 <body>
 
 <div id="app">
-  <!-- Barra de estado -->
-  <div class="status-bar">
-    <span id="current-time">9:41</span>
-    <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
-      <span>📶</span><span>🔋</span>
-    </div>
-  </div>
 
   <!-- ══ INICIO ════════════════════════════════════════════ -->
   <div id="screen-home" class="screen active">
@@ -527,27 +520,36 @@ let state = {
 
 // ══ INICIALIZACIÓN ════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async () => {
-  const user = await Auth.getUser();
-  if (!user) { window.location.href = 'index.html'; return; }
-
   applyStoredDarkMode();
-  updateClock();
-  setInterval(updateClock, 60000);
+  console.log('app.html: verificando sesión...');
 
-  // Cargar datos base
-  state.profile   = await DB.getProfile();
-  state.couple    = await DB.getCouple();
-  state.accounts  = await DB.getAccounts();
-  state.categories = await DB.getCategories();
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) {
+      console.warn('Sin sesión, redirigiendo a login');
+      window.location.href = 'index.html';
+      return;
+    }
+    console.log('Sesión OK, cargando datos...');
 
-  updateProfileUI();
-  await loadHomeScreen();
-  setTxDefaults();
+    state.profile    = await DB.getProfile();
+    state.couple     = await DB.getCouple();
+    state.accounts   = await DB.getAccounts();
+    state.categories = await DB.getCategories();
 
-  // Prellenar selects de cuentas en modales
-  populateAccountSelects();
-  populateCategorySelect();
-  populateBudgetParentSelect();
+    console.log('Perfil:', state.profile?.name, '| Cuentas:', state.accounts.length, '| Categorías:', state.categories.length);
+
+    updateProfileUI();
+    await loadHomeScreen();
+    setTxDefaults();
+    populateAccountSelects();
+    populateCategorySelect();
+    populateBudgetParentSelect();
+
+    console.log('app.html cargado correctamente ✓');
+  } catch(e) {
+    console.error('Error al iniciar app: ' + e.message);
+  }
 });
 
 // ══ NAVEGACIÓN ════════════════════════════════════════════════
@@ -1508,12 +1510,6 @@ async function saveDividend(businessId) {
 }
 
 // ══ HELPERS ══════════════════════════════════════════════════
-function updateClock() {
-  const now = new Date();
-  document.getElementById('current-time').textContent =
-    now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-}
-
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1531,6 +1527,61 @@ function openModal(id) {
     if (id === 'import-pdf-modal') populateAccountSelects();
   }
 }
+</script>
+
+<!-- ══ CONSOLA DEBUG ══════════════════════════════════════════ -->
+<style>
+  #dbg-btn { position:fixed;bottom:20px;right:20px;z-index:9999;background:#1e1b4b;color:white;border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.5); }
+  #dbg-panel { display:none;position:fixed;bottom:0;left:0;right:0;z-index:9998;background:#0a0a0a;color:#00ff88;font-family:monospace;font-size:12px;max-height:50vh;overflow-y:auto;border-top:2px solid #6366f1; }
+  #dbg-hdr { position:sticky;top:0;background:#0a0a0a;display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #222; }
+  #dbg-hdr span { color:#818cf8;font-weight:bold; }
+  #dbg-hdr button { background:#333;color:#ccc;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:11px;font-family:monospace; }
+  #dbg-log { padding:6px 12px 20px; }
+  .dl { padding:3px 0;border-bottom:1px solid #111;word-break:break-all;white-space:pre-wrap; }
+  .dl-log { color:#00ff88; } .dl-error { color:#ff4444; } .dl-warn { color:#ffaa00; } .dl-info { color:#60a5fa; }
+</style>
+<div id="dbg-btn" onclick="toggleDbg()">🐛</div>
+<div id="dbg-panel">
+  <div id="dbg-hdr">
+    <span>CONSOLA DEBUG</span>
+    <button onclick="document.getElementById('dbg-log').innerHTML=''">Limpiar</button>
+  </div>
+  <div id="dbg-log"></div>
+</div>
+<script>
+(function() {
+  function dbgLine(type, args) {
+    var log = document.getElementById('dbg-log');
+    if (!log) return;
+    var msg = Array.from(args).map(function(a) {
+      if (a instanceof Error) return a.message;
+      try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
+      catch(e) { return '[objeto]'; }
+    }).join(' ');
+    var t = new Date().toLocaleTimeString('es');
+    var d = document.createElement('div');
+    d.className = 'dl dl-' + type;
+    d.textContent = '[' + t + '] ' + type.toUpperCase() + ': ' + msg;
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+    if (type === 'error') document.getElementById('dbg-panel').style.display = 'block';
+  }
+  ['log','error','warn','info'].forEach(function(type) {
+    var o = console[type].bind(console);
+    console[type] = function() { o.apply(console, arguments); dbgLine(type, arguments); };
+  });
+  window.addEventListener('error', function(e) {
+    dbgLine('error', [e.message + ' ' + (e.filename||'').split('/').pop() + ':' + e.lineno]);
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    dbgLine('error', ['Unhandled: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))]);
+  });
+})();
+
+window.toggleDbg = function() {
+  var p = document.getElementById('dbg-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+};
 </script>
 </body>
 </html>

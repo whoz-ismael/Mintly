@@ -199,7 +199,7 @@ window.addEventListener('load', function() {
       var r = await sb.auth.signUp({ email: email, password: pass, options: { data: { name: name } } });
       console.log('register result error=' + (r.error ? r.error.message : 'none') + ' user=' + !!(r.data && r.data.user));
       if (r.error) { showErr('err-register', r.error.message); setBtn('btn-register', false); return; }
-      if (r.data && r.data.user) { window.location.href = 'app.html'; }
+      if (r.data && r.data.user) { window.location.href = 'onboarding.html'; }
       else { showErr('err-register', 'Verifica tu email para confirmar.'); setBtn('btn-register', false); }
     } catch(e) { console.error('register exception: ' + e.message); showErr('err-register', e.message); setBtn('btn-register', false); }
   };

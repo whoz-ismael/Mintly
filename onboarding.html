@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#6366F1">
+  <title>FinanzasJuntos — Configuración</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --bg:#F9FAFB; --surface:#FFFFFF; --surface2:#F3F4F6; --border:#E5E7EB;
+      --text1:#111827; --text2:#6B7280; --text3:#9CA3AF;
+      --accent:#6366F1; --accent-bg:#EEF2FF;
+      --green:#10B981; --green-bg:#ECFDF5;
+      --red:#EF4444; --red-bg:#FEF2F2;
+      --shadow:0 1px 3px rgba(0,0,0,0.07); --shadow-md:0 4px 12px rgba(0,0,0,0.08);
+    }
+    .dark {
+      --bg:#0F1117; --surface:#1C1F2A; --surface2:#252836; --border:#2D3148;
+      --text1:#F3F4F6; --text2:#A0A8C0; --text3:#6B7280;
+    }
+    html, body { min-height:100%; font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text1); }
+
+    /* Layout */
+    #ob { min-height:100vh; display:flex; flex-direction:column; max-width:480px; margin:0 auto; }
+    .ob-top { padding:52px 24px 0; }
+    .ob-body { flex:1; padding:0 24px; overflow-y:auto; }
+    .ob-foot { padding:20px 24px 44px; }
+
+    /* Dots */
+    .dots { display:flex; gap:6px; margin-bottom:28px; }
+    .dot { height:6px; border-radius:999px; background:var(--border); transition:all 0.3s; width:6px; }
+    .dot.active { background:var(--accent); width:20px; }
+
+    /* Step */
+    .step { display:none; animation:fadeUp 0.25s ease-out; }
+    .step.active { display:block; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+    .ob-emoji { font-size:52px; display:block; margin-bottom:16px; }
+    .ob-title { font-size:24px; font-weight:700; color:var(--text1); margin-bottom:8px; }
+    .ob-desc  { font-size:15px; color:var(--text3); line-height:1.55; margin-bottom:28px; }
+
+    /* Type cards grid */
+    .type-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+    .type-card {
+      padding:18px 14px; border-radius:16px; border:2px solid var(--border);
+      background:var(--surface); cursor:pointer; text-align:center; transition:all 0.2s;
+    }
+    .type-card:active, .type-card.sel { border-color:var(--accent); background:var(--accent-bg); }
+    .type-card .tc-icon  { font-size:32px; display:block; margin-bottom:8px; }
+    .type-card .tc-label { font-size:14px; font-weight:700; color:var(--text1); }
+    .type-card .tc-desc  { font-size:11px; color:var(--text3); margin-top:3px; }
+
+    /* Form */
+    .fg { margin-bottom:14px; }
+    .lbl { display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:5px; }
+    input, select {
+      width:100%; padding:11px 14px; border-radius:12px; border:1.5px solid var(--border);
+      background:var(--surface2); color:var(--text1); font-size:15px; font-family:inherit;
+      outline:none; transition:border-color 0.2s; -webkit-appearance:none;
+    }
+    input:focus, select:focus { border-color:var(--accent); }
+    input::placeholder { color:var(--text3); }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+    /* Buttons */
+    .btn-primary {
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      width:100%; padding:15px; background:var(--accent); color:white;
+      border:none; border-radius:16px; font-size:16px; font-weight:700;
+      font-family:inherit; cursor:pointer; transition:opacity 0.2s;
+    }
+    .btn-primary:disabled { opacity:0.5; cursor:not-allowed; }
+    .btn-secondary {
+      display:flex; align-items:center; justify-content:center;
+      width:100%; padding:13px; background:var(--surface2); color:var(--text2);
+      border:1.5px solid var(--border); border-radius:16px; font-size:15px;
+      font-weight:600; font-family:inherit; cursor:pointer; margin-bottom:10px;
+    }
+    .btn-ghost {
+      background:none; border:none; color:var(--accent); font-size:14px;
+      font-weight:600; font-family:inherit; cursor:pointer; padding:4px 0;
+    }
+    .spinner { width:18px; height:18px; border:2px solid rgba(255,255,255,0.4); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* Account list */
+    .acc-list { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+    .acc-item {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 14px; background:var(--surface2); border-radius:12px;
+    }
+    .acc-item-left { display:flex; align-items:center; gap:10px; }
+    .acc-icon { font-size:22px; }
+    .acc-name { font-size:14px; font-weight:600; color:var(--text1); }
+    .acc-sub  { font-size:11px; color:var(--text3); }
+
+    /* Bottom sheet modal */
+    .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; display:none; align-items:flex-end; justify-content:center; }
+    .overlay.open { display:flex; }
+    .sheet {
+      width:100%; max-width:480px; background:var(--surface); border-radius:24px 24px 0 0;
+      padding:20px 20px 44px; max-height:90vh; overflow-y:auto;
+      animation:slideUp 0.3s cubic-bezier(.16,1,.3,1);
+    }
+    @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    .handle { width:36px; height:4px; background:var(--border); border-radius:999px; margin:0 auto 18px; }
+    .sheet-title { font-size:18px; font-weight:700; color:var(--text1); margin-bottom:16px; }
+
+    /* Invite code */
+    .code-box {
+      background:var(--accent-bg); border-radius:16px; padding:20px;
+      text-align:center; margin-bottom:20px;
+    }
+    .code-label { font-size:11px; font-weight:700; color:var(--accent); letter-spacing:0.08em; margin-bottom:8px; }
+    .code-value { font-size:36px; font-weight:700; color:var(--accent); letter-spacing:5px; }
+    .divider { text-align:center; color:var(--text3); font-size:13px; margin:18px 0; position:relative; }
+    .divider::before, .divider::after { content:''; position:absolute; top:50%; width:44%; height:1px; background:var(--border); }
+    .divider::before { left:0; } .divider::after { right:0; }
+
+    .toast { position:fixed; top:60px; left:50%; transform:translateX(-50%) translateY(-80px); background:var(--text1); color:var(--surface); padding:12px 20px; border-radius:12px; font-size:14px; font-weight:500; z-index:200; transition:transform 0.3s cubic-bezier(.16,1,.3,1); white-space:nowrap; box-shadow:var(--shadow-md); }
+    .toast.show { transform:translateX(-50%) translateY(0); }
+    .toast.ok  { background:var(--green); color:white; }
+    .toast.err { background:var(--red);   color:white; }
+
+    /* Debug */
+    #dbg-btn { position:fixed; bottom:20px; right:20px; z-index:9999; background:#1e1b4b; color:white; border-radius:50%; width:44px; height:44px; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,0.4); }
+    #dbg-panel { display:none; position:fixed; bottom:0; left:0; right:0; z-index:9998; background:#0a0a0a; color:#00ff88; font-family:monospace; font-size:11px; max-height:45vh; overflow-y:auto; border-top:2px solid #6366f1; }
+    #dbg-hdr { position:sticky; top:0; background:#0a0a0a; display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-bottom:1px solid #222; }
+    #dbg-hdr span { color:#818cf8; font-weight:bold; }
+    #dbg-hdr button { background:#333; color:#ccc; border:none; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:11px; font-family:monospace; }
+    #dbg-log { padding:6px 12px 16px; }
+    .dl { padding:3px 0; border-bottom:1px solid #111; word-break:break-all; }
+    .dl-log{color:#00ff88} .dl-error{color:#ff4444} .dl-warn{color:#ffaa00} .dl-info{color:#60a5fa}
+  </style>
+</head>
+<body>
+
+<!-- ══ ONBOARDING ════════════════════════════════════════════ -->
+<div id="ob">
+  <div class="ob-top">
+    <div class="dots" id="dots"></div>
+  </div>
+
+  <div class="ob-body">
+
+    <!-- PASO 1: Tipo de cuenta -->
+    <div class="step active" id="step-1">
+      <span class="ob-emoji">👋</span>
+      <h2 class="ob-title">¡Bienvenido!</h2>
+      <p class="ob-desc">¿Tu cuenta es para uso personal o la vas a compartir con tu pareja?</p>
+      <div class="type-grid">
+        <div class="type-card" id="tc-personal" onclick="selectType('personal')">
+          <span class="tc-icon">👤</span>
+          <div class="tc-label">Personal</div>
+          <div class="tc-desc">Solo para mí</div>
+        </div>
+        <div class="type-card" id="tc-couple" onclick="selectType('couple')">
+          <span class="tc-icon">👫</span>
+          <div class="tc-label">En pareja</div>
+          <div class="tc-desc">Con mi pareja</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 2: Moneda -->
+    <div class="step" id="step-2">
+      <span class="ob-emoji">💱</span>
+      <h2 class="ob-title">¿En qué moneda manejás tu dinero?</h2>
+      <p class="ob-desc">Todo se mostrará en USD. Esta es tu moneda local para registrar gastos.</p>
+      <div class="fg">
+        <label class="lbl">Moneda principal</label>
+        <select id="ob-currency">
+          <option value="USD">🇺🇸 Dólar americano (USD)</option>
+          <option value="DOP">🇩🇴 Peso dominicano (DOP)</option>
+          <option value="MXN">🇲🇽 Peso mexicano (MXN)</option>
+          <option value="ARS">🇦🇷 Peso argentino (ARS)</option>
+          <option value="COP">🇨🇴 Peso colombiano (COP)</option>
+          <option value="EUR">🇪🇺 Euro (EUR)</option>
+          <option value="GBP">🇬🇧 Libra esterlina (GBP)</option>
+          <option value="CAD">🇨🇦 Dólar canadiense (CAD)</option>
+          <option value="BRL">🇧🇷 Real brasileño (BRL)</option>
+          <option value="CLP">🇨🇱 Peso chileno (CLP)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- PASO 3: Cuentas -->
+    <div class="step" id="step-3">
+      <span class="ob-emoji">🏦</span>
+      <h2 class="ob-title">Agrega tus cuentas</h2>
+      <p class="ob-desc">Cuentas de ahorro, débito, crédito o efectivo. Podés agregar más después.</p>
+      <div class="acc-list" id="acc-list"></div>
+      <button class="btn-secondary" onclick="openAccModal()">+ Agregar cuenta o tarjeta</button>
+    </div>
+
+    <!-- PASO 4: Negocio -->
+    <div class="step" id="step-4">
+      <span class="ob-emoji">🏢</span>
+      <h2 class="ob-title">¿Tenés participación en un negocio?</h2>
+      <p class="ob-desc">Si sos socio o dueño, podés registrar tu inversión y los ingresos que genera.</p>
+      <div class="type-grid" style="margin-bottom:20px;">
+        <div class="type-card" id="tc-biz-no" onclick="selectBiz(false)">
+          <span class="tc-icon">👋</span>
+          <div class="tc-label">No por ahora</div>
+        </div>
+        <div class="type-card" id="tc-biz-yes" onclick="selectBiz(true)">
+          <span class="tc-icon">✅</span>
+          <div class="tc-label">Sí, agregar</div>
+        </div>
+      </div>
+      <div id="biz-form" style="display:none;">
+        <div class="fg"><label class="lbl">Nombre del negocio</label>
+          <input id="biz-name" placeholder="Ej: Café del Centro"></div>
+        <div class="grid2">
+          <div class="fg"><label class="lbl">Mi participación (%)</label>
+            <input id="biz-pct" type="number" placeholder="35" min="1" max="100"></div>
+          <div class="fg"><label class="lbl">Capital invertido</label>
+            <input id="biz-inv" type="number" placeholder="5000"></div>
+        </div>
+        <div class="fg"><label class="lbl">Fecha de inicio</label>
+          <input id="biz-date" type="date"></div>
+      </div>
+    </div>
+
+    <!-- PASO 5a: Pareja -->
+    <div class="step" id="step-5-couple">
+      <span class="ob-emoji">💑</span>
+      <h2 class="ob-title">Conectá con tu pareja</h2>
+      <p class="ob-desc">Compartí tu código con tu pareja para vincular las cuentas y ver las finanzas juntos.</p>
+      <div class="code-box">
+        <div class="code-label">TU CÓDIGO DE INVITACIÓN</div>
+        <div class="code-value" id="invite-code">----</div>
+        <button class="btn-ghost" style="margin-top:10px;" onclick="copyCode()">Copiar código</button>
+      </div>
+      <div class="divider">o ingresá el código de tu pareja</div>
+      <div class="fg"><label class="lbl">Código de tu pareja</label>
+        <input id="partner-code" placeholder="Ej: A3F9B2C1" style="text-align:center;font-size:20px;letter-spacing:4px;text-transform:uppercase;">
+      </div>
+      <button class="btn-secondary" onclick="joinCouple()">Vincularme con mi pareja</button>
+    </div>
+
+    <!-- PASO 5b: Solo -->
+    <div class="step" id="step-5-solo">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:50vh;text-align:center;">
+        <span class="ob-emoji">🎉</span>
+        <h2 class="ob-title">¡Todo listo!</h2>
+        <p class="ob-desc">Tu cuenta está configurada. Podés empezar a registrar tus finanzas.</p>
+      </div>
+    </div>
+
+  </div><!-- /ob-body -->
+
+  <div class="ob-foot">
+    <button class="btn-primary" id="ob-btn" onclick="obNext()" disabled>Continuar</button>
+    <div style="text-align:center;margin-top:12px;">
+      <button class="btn-ghost" id="skip-btn" onclick="obSkip()" style="display:none;">Saltar este paso →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: agregar cuenta -->
+<div class="overlay" id="acc-modal" onclick="closeAccModal(event)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="handle"></div>
+    <div class="sheet-title">Agregar cuenta</div>
+    <div class="fg"><label class="lbl">Tipo de cuenta</label>
+      <select id="m-type" onchange="onMTypeChange()">
+        <option value="savings">🏦 Cuenta de ahorro</option>
+        <option value="checking">💳 Cuenta corriente / Débito</option>
+        <option value="credit">💎 Tarjeta de crédito</option>
+        <option value="cash">💵 Efectivo</option>
+      </select></div>
+    <div class="fg"><label class="lbl">Nombre</label>
+      <input id="m-name" placeholder="Ej: Chase, BHD, Efectivo USD"></div>
+    <div class="grid2">
+      <div class="fg"><label class="lbl">Divisa</label>
+        <select id="m-currency">
+          <option value="USD">USD 🇺🇸</option>
+          <option value="DOP">DOP 🇩🇴</option>
+          <option value="EUR">EUR 🇪🇺</option>
+          <option value="GBP">GBP 🇬🇧</option>
+          <option value="CAD">CAD 🇨🇦</option>
+          <option value="MXN">MXN 🇲🇽</option>
+          <option value="ARS">ARS 🇦🇷</option>
+          <option value="BRL">BRL 🇧🇷</option>
+          <option value="COP">COP 🇨🇴</option>
+        </select></div>
+      <div class="fg"><label class="lbl">Saldo actual</label>
+        <input id="m-balance" type="number" placeholder="0.00"></div>
+    </div>
+    <!-- Crédito -->
+    <div id="m-credit" style="display:none;">
+      <div class="grid2">
+        <div class="fg"><label class="lbl">Límite de crédito</label>
+          <input id="m-limit" type="number" placeholder="10000"></div>
+        <div class="fg"><label class="lbl">% Cashback</label>
+          <input id="m-cashback" type="number" placeholder="1.5" step="0.1"></div>
+      </div>
+      <div class="grid2">
+        <div class="fg"><label class="lbl">Día de corte</label>
+          <input id="m-cutoff" type="number" min="1" max="31" placeholder="25"></div>
+        <div class="fg"><label class="lbl">Día de pago</label>
+          <input id="m-dueday" type="number" min="1" max="31" placeholder="15"></div>
+      </div>
+    </div>
+    <!-- Ahorro -->
+    <div id="m-savings" style="display:none;">
+      <div class="fg"><label class="lbl">Tasa de interés anual (%)</label>
+        <input id="m-interest" type="number" placeholder="2.5" step="0.1"></div>
+    </div>
+    <button class="btn-primary" onclick="saveAccount()">Guardar cuenta</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="dbg-btn" onclick="toggleDbg()">🐛</div>
+<div id="dbg-panel">
+  <div id="dbg-hdr"><span>DEBUG</span>
+    <button onclick="document.getElementById('dbg-log').innerHTML=''">Limpiar</button></div>
+  <div id="dbg-log"></div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+// ── Debug console ────────────────────────────────────────
+(function() {
+  function dl(type, args) {
+    var log = document.getElementById('dbg-log'); if (!log) return;
+    var msg = Array.from(args).map(function(a) {
+      try { return typeof a === 'object' ? JSON.stringify(a) : String(a); } catch(e) { return '[obj]'; }
+    }).join(' ');
+    var d = document.createElement('div');
+    d.className = 'dl dl-' + type;
+    d.textContent = '[' + new Date().toLocaleTimeString('es') + '] ' + type.toUpperCase() + ': ' + msg;
+    log.appendChild(d); log.scrollTop = log.scrollHeight;
+    if (type === 'error') document.getElementById('dbg-panel').style.display = 'block';
+  }
+  ['log','error','warn','info'].forEach(function(t) {
+    var o = console[t].bind(console);
+    console[t] = function() { o.apply(console, arguments); dl(t, arguments); };
+  });
+  window.addEventListener('error', function(e) { dl('error', [e.message + ' ' + e.lineno]); });
+  window.addEventListener('unhandledrejection', function(e) {
+    dl('error', ['Unhandled: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))]);
+  });
+})();
+window.toggleDbg = function() {
+  var p = document.getElementById('dbg-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+};
+
+// ── Init ─────────────────────────────────────────────────
+var sb, userId;
+var state = { step: 1, type: null, currency: 'USD', accounts: [], hasBiz: false, inviteCode: null };
+var TOTAL_STEPS = 5;
+
+window.addEventListener('load', async function() {
+  if (window.matchMedia('(prefers-color-scheme: dark)').matches)
+    document.documentElement.classList.add('dark');
+
+  sb = supabase.createClient(
+    'https://kidczvzfmhkdzxigfntz.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZGN6dnpmbWhrZHp4aWdmbnR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyOTExNTQsImV4cCI6MjA4ODg2NzE1NH0.gNWpp_PxjFlSeYzHNWzujD1UQfdK8ocaHgNswy8atxU'
+  );
+
+  // Verificar sesión
+  var { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  userId = session.user.id;
+  console.log('Onboarding: usuario', session.user.email);
+
+  // Si ya completó el onboarding, ir a la app
+  var { data: accs } = await sb.from('accounts').select('id').limit(1);
+  if (accs && accs.length > 0) { window.location.href = 'app.html'; return; }
+
+  // Poner fecha de hoy en el campo de negocio
+  document.getElementById('biz-date').value = new Date().toISOString().split('T')[0];
+
+  renderDots();
+});
+
+// ── Dots ─────────────────────────────────────────────────
+function renderDots() {
+  var dotsEl = document.getElementById('dots');
+  dotsEl.innerHTML = '';
+  for (var i = 1; i <= TOTAL_STEPS; i++) {
+    var d = document.createElement('div');
+    d.className = 'dot' + (i === state.step ? ' active' : '');
+    dotsEl.appendChild(d);
+  }
+}
+
+function showStep(id) {
+  document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  // Botón
+  var btn = document.getElementById('ob-btn');
+  var skip = document.getElementById('skip-btn');
+  btn.disabled = false;
+  skip.style.display = 'none';
+
+  if (id === 'step-1') { btn.disabled = true; btn.textContent = 'Continuar'; }
+  else if (id === 'step-3') { btn.textContent = 'Continuar'; skip.style.display = 'block'; skip.textContent = 'Saltar — agregar después →'; }
+  else if (id === 'step-4') { btn.disabled = true; btn.textContent = 'Continuar'; }
+  else if (id === 'step-5-couple') { btn.textContent = 'Empezar a usar la app'; }
+  else if (id === 'step-5-solo') { btn.textContent = '¡Empezar! 🎉'; }
+  else { btn.textContent = 'Continuar'; }
+}
+
+// ── Navegación ───────────────────────────────────────────
+window.obNext = async function() {
+  var btn = document.getElementById('ob-btn');
+
+  if (state.step === 1) {
+    // Guardar tipo de cuenta en perfil
+    await sb.from('profiles').update({ account_type: state.type }).eq('id', userId);
+    state.step = 2; renderDots(); showStep('step-2');
+
+  } else if (state.step === 2) {
+    state.currency = document.getElementById('ob-currency').value;
+    await sb.from('profiles').update({ base_currency: state.currency }).eq('id', userId);
+    state.step = 3; renderDots(); showStep('step-3');
+
+  } else if (state.step === 3) {
+    state.step = 4; renderDots(); showStep('step-4');
+
+  } else if (state.step === 4) {
+    // Guardar negocio si aplica
+    if (state.hasBiz) {
+      var bizName = document.getElementById('biz-name').value.trim();
+      if (bizName) {
+        await sb.from('businesses').insert({
+          user_id: userId,
+          name: bizName,
+          icon: '🏢',
+          ownership_percent: parseFloat(document.getElementById('biz-pct').value) || 0,
+          initial_investment: parseFloat(document.getElementById('biz-inv').value) || 0,
+          currency: state.currency,
+          start_date: document.getElementById('biz-date').value
+        });
+        console.log('Negocio guardado:', bizName);
+      }
+    }
+    state.step = 5; renderDots();
+    if (state.type === 'couple') {
+      // Crear invitación
+      var code = Math.random().toString(36).substring(2, 10).toUpperCase();
+      var { data: couple } = await sb.from('couples').insert({
+        user1_id: userId, invite_code: code, status: 'pending'
+      }).select().single();
+      if (couple) {
+        state.inviteCode = couple.invite_code;
+        document.getElementById('invite-code').textContent = couple.invite_code;
+        console.log('Invite code:', couple.invite_code);
+      }
+      showStep('step-5-couple');
+    } else {
+      showStep('step-5-solo');
+    }
+
+  } else if (state.step === 5) {
+    // Fin
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div>';
+    window.location.href = 'app.html';
+  }
+};
+
+window.obSkip = function() {
+  if (state.step === 3) { obNext(); }
+};
+
+// ── Paso 1: tipo ─────────────────────────────────────────
+window.selectType = function(type) {
+  state.type = type;
+  document.getElementById('tc-personal').classList.toggle('sel', type === 'personal');
+  document.getElementById('tc-couple').classList.toggle('sel', type === 'couple');
+  document.getElementById('ob-btn').disabled = false;
+};
+
+// ── Paso 4: negocio ──────────────────────────────────────
+window.selectBiz = function(has) {
+  state.hasBiz = has;
+  document.getElementById('tc-biz-no').classList.toggle('sel', !has);
+  document.getElementById('tc-biz-yes').classList.toggle('sel', has);
+  document.getElementById('biz-form').style.display = has ? 'block' : 'none';
+  document.getElementById('ob-btn').disabled = false;
+};
+
+// ── Paso 5: pareja ───────────────────────────────────────
+window.copyCode = function() {
+  if (state.inviteCode) {
+    navigator.clipboard.writeText(state.inviteCode).then(function() {
+      showToast('Código copiado ✓', 'ok');
+    });
+  }
+};
+
+window.joinCouple = async function() {
+  var code = document.getElementById('partner-code').value.trim().toUpperCase();
+  if (!code) { showToast('Ingresá el código de tu pareja', 'err'); return; }
+  var { data: couple, error } = await sb.from('couples')
+    .select('*').eq('invite_code', code).eq('status', 'pending').single();
+  if (error || !couple) { showToast('Código inválido o ya usado', 'err'); return; }
+  if (couple.user1_id === userId) { showToast('No podés usar tu propio código', 'err'); return; }
+  await sb.from('couples').update({ user2_id: userId, status: 'active' }).eq('id', couple.id);
+  showToast('¡Conectados con tu pareja! 💑', 'ok');
+};
+
+// ── Modal de cuenta ──────────────────────────────────────
+window.openAccModal = function() {
+  document.getElementById('acc-modal').classList.add('open');
+};
+window.closeAccModal = function(e) {
+  if (e.target === document.getElementById('acc-modal'))
+    document.getElementById('acc-modal').classList.remove('open');
+};
+window.onMTypeChange = function() {
+  var t = document.getElementById('m-type').value;
+  document.getElementById('m-credit').style.display  = t === 'credit'  ? 'block' : 'none';
+  document.getElementById('m-savings').style.display = t === 'savings' ? 'block' : 'none';
+};
+window.saveAccount = async function() {
+  var type    = document.getElementById('m-type').value;
+  var name    = document.getElementById('m-name').value.trim();
+  var currency= document.getElementById('m-currency').value;
+  var balance = parseFloat(document.getElementById('m-balance').value) || 0;
+  if (!name) { showToast('Ingresá un nombre', 'err'); return; }
+
+  var acc = { user_id: userId, name, type, currency, balance };
+  if (type === 'credit') {
+    acc.credit_limit     = parseFloat(document.getElementById('m-limit').value)    || 0;
+    acc.cashback_rate    = parseFloat(document.getElementById('m-cashback').value)  || 0;
+    acc.cut_off_day      = parseInt(document.getElementById('m-cutoff').value)      || null;
+    acc.payment_due_day  = parseInt(document.getElementById('m-dueday').value)      || null;
+    acc.credit_reminder_enabled = true;
+    acc.credit_reminder_months  = 6;
+  }
+  if (type === 'savings') {
+    acc.interest_rate = parseFloat(document.getElementById('m-interest').value) || 0;
+  }
+
+  var { data, error } = await sb.from('accounts').insert(acc).select().single();
+  if (error) { console.error('Error guardando cuenta:', error.message); showToast('Error al guardar', 'err'); return; }
+
+  state.accounts.push(data);
+  renderAccList();
+  document.getElementById('acc-modal').classList.remove('open');
+  // Limpiar
+  document.getElementById('m-name').value = '';
+  document.getElementById('m-balance').value = '';
+  showToast(name + ' agregada ✓', 'ok');
+  console.log('Cuenta guardada:', name);
+};
+
+function renderAccList() {
+  var icons = { savings:'🏦', checking:'💳', credit:'💎', cash:'💵' };
+  var el = document.getElementById('acc-list');
+  el.innerHTML = state.accounts.map(function(a) {
+    return '<div class="acc-item">' +
+      '<div class="acc-item-left">' +
+        '<span class="acc-icon">' + (icons[a.type] || '🏦') + '</span>' +
+        '<div><div class="acc-name">' + a.name + '</div>' +
+            '<div class="acc-sub">' + a.currency + ' · ' + (a.type === 'credit' ? 'Crédito' : a.type === 'savings' ? 'Ahorro' : a.type === 'checking' ? 'Débito' : 'Efectivo') + '</div></div>' +
+      '</div>' +
+      '<span style="color:var(--green);font-size:18px;">✓</span>' +
+    '</div>';
+  }).join('');
+}
+
+// ── Toast ────────────────────────────────────────────────
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (type || '') + ' show';
+  setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+</script>
+</body>
+</html>

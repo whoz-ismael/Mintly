@@ -4,594 +4,207 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#6366F1">
-  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>FinanzasJuntos</title>
-  <link rel="stylesheet" href="css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    .auth-logo { font-size: 48px; margin-bottom: 8px; }
-    .auth-title { font-size: 28px; font-weight: 700; color: var(--text1); text-align: center; }
-    .auth-sub   { font-size: 14px; color: var(--text3); text-align: center; margin-bottom: 32px; }
-    .auth-card  { width: 100%; max-width: 400px; background: var(--surface); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow-md); }
-    .auth-tabs  { display: flex; background: var(--surface2); border-radius: var(--radius-xs); padding: 4px; margin-bottom: 24px; }
-    .auth-tab   { flex: 1; padding: 8px; text-align: center; border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--text3); cursor: pointer; transition: all 0.2s; }
-    .auth-tab.active { background: var(--surface); color: var(--text1); box-shadow: var(--shadow); }
-    .form-group { margin-bottom: 16px; }
-    .divider    { text-align: center; color: var(--text3); font-size: 13px; margin: 20px 0; position: relative; }
-    .divider::before, .divider::after { content: ''; position: absolute; top: 50%; width: 42%; height: 1px; background: var(--border); }
-    .divider::before { left: 0; } .divider::after { right: 0; }
-
-    /* Onboarding */
-    #onboarding { display: none; min-height: 100vh; flex-direction: column; background: var(--bg); }
-    .ob-header { padding: 60px 24px 24px; text-align: center; }
-    .ob-step-indicator { display: flex; gap: 6px; justify-content: center; margin-bottom: 24px; }
-    .ob-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: all 0.3s; }
-    .ob-dot.active { background: var(--accent); width: 24px; border-radius: 4px; }
-    .ob-body { flex: 1; padding: 0 24px 24px; }
-    .ob-emoji { font-size: 52px; text-align: center; display: block; margin-bottom: 16px; }
-    .ob-title { font-size: 24px; font-weight: 700; color: var(--text1); text-align: center; margin-bottom: 8px; }
-    .ob-desc  { font-size: 15px; color: var(--text3); text-align: center; margin-bottom: 28px; line-height: 1.5; }
-    .ob-footer { padding: 0 24px 40px; }
-    .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
-    .chip { padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface); font-size: 13px; font-weight: 500; color: var(--text2); cursor: pointer; transition: all 0.2s; }
-    .chip.selected { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
-    .account-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .type-card { padding: 16px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--surface); cursor: pointer; text-align: center; transition: all 0.2s; }
-    .type-card:active, .type-card.selected { border-color: var(--accent); background: var(--accent-bg); }
-    .type-card .icon { font-size: 28px; display: block; margin-bottom: 6px; }
-    .type-card .label { font-size: 13px; font-weight: 600; color: var(--text1); }
-    .type-card .desc  { font-size: 11px; color: var(--text3); margin-top: 2px; }
-    .added-accounts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
-    .added-account  { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surface2); border-radius: var(--radius-xs); }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F9FAFB; --surface: #FFFFFF; --surface2: #F3F4F6; --border: #E5E7EB;
+      --text1: #111827; --text2: #6B7280; --text3: #9CA3AF;
+      --accent: #6366F1; --red: #EF4444; --red-bg: #FEF2F2;
+      --shadow: 0 1px 3px rgba(0,0,0,0.07); --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+    }
+    .dark {
+      --bg: #0F1117; --surface: #1C1F2A; --surface2: #252836; --border: #2D3148;
+      --text1: #F3F4F6; --text2: #A0A8C0; --text3: #6B7280;
+    }
+    html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text1); }
+    #wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; }
+    .logo  { font-size: 52px; text-align: center; margin-bottom: 8px; }
+    .title { font-size: 28px; font-weight: 700; text-align: center; color: var(--text1); }
+    .sub   { font-size: 14px; color: var(--text3); text-align: center; margin-bottom: 32px; }
+    .card  { width: 100%; max-width: 400px; background: var(--surface); border-radius: 20px; padding: 28px; box-shadow: var(--shadow-md); }
+    .tabs  { display: flex; background: var(--surface2); border-radius: 10px; padding: 4px; margin-bottom: 24px; }
+    .tab   { flex: 1; padding: 8px; text-align: center; border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--text3); cursor: pointer; border: none; background: none; font-family: inherit; transition: all 0.2s; }
+    .tab.active { background: var(--surface); color: var(--text1); box-shadow: var(--shadow); }
+    .lbl   { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+    .fg    { margin-bottom: 16px; }
+    input  { width: 100%; padding: 11px 14px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface2); color: var(--text1); font-size: 15px; font-family: inherit; outline: none; }
+    input:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--text3); }
+    .btn   { display: flex; align-items: center; justify-content: center; width: 100%; padding: 13px; background: var(--accent); color: white; border: none; border-radius: 14px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .err   { display: none; margin-top: 12px; padding: 10px 14px; background: var(--red-bg); color: var(--red); border-radius: 10px; font-size: 13px; text-align: center; }
+    .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #dbg-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #1e1b4b; color: white; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.5); }
+    #dbg-panel { display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 9998; background: #0a0a0a; color: #00ff88; font-family: monospace; font-size: 12px; max-height: 50vh; overflow-y: auto; border-top: 2px solid #6366f1; }
+    #dbg-hdr { position: sticky; top: 0; background: #0a0a0a; display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid #222; }
+    #dbg-hdr span { color: #818cf8; font-weight: bold; }
+    #dbg-hdr button { background: #333; color: #ccc; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 11px; font-family: monospace; }
+    #dbg-log { padding: 6px 12px 20px; }
+    .dl { padding: 3px 0; border-bottom: 1px solid #111; word-break: break-all; white-space: pre-wrap; }
+    .dl-log { color: #00ff88; } .dl-error { color: #ff4444; } .dl-warn { color: #ffaa00; } .dl-info { color: #60a5fa; }
   </style>
 </head>
 <body>
 
-<!-- ══ PANTALLA DE AUTENTICACIÓN ══════════════════════════════ -->
-<div id="auth-screen">
-  <div class="auth-logo">💑</div>
-  <h1 class="auth-title">FinanzasJuntos</h1>
-  <p class="auth-sub">Manejá tus finanzas en pareja</p>
-
-  <div class="auth-card">
-    <div class="auth-tabs">
-      <div class="auth-tab active" onclick="switchAuthTab('login', this)">Iniciar sesión</div>
-      <div class="auth-tab" onclick="switchAuthTab('register', this)">Registrarse</div>
+<div id="wrap">
+  <div class="logo">&#x1F491;</div>
+  <h1 class="title">FinanzasJuntos</h1>
+  <p class="sub">Manejá tus finanzas en pareja</p>
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" id="tab-login"    onclick="switchTab('login')">Iniciar sesión</button>
+      <button class="tab"        id="tab-register" onclick="switchTab('register')">Registrarse</button>
     </div>
-
-    <!-- Login -->
-    <div id="login-form">
-      <div class="form-group">
-        <label class="input-label">Email</label>
-        <input id="login-email" class="input" type="email" placeholder="tu@email.com">
-      </div>
-      <div class="form-group">
-        <label class="input-label">Contraseña</label>
-        <input id="login-password" class="input" type="password" placeholder="••••••••">
-      </div>
-      <button class="btn btn-primary" id="login-btn" onclick="doLogin()">
-        Ingresar
-      </button>
-      <p id="login-error" style="color:var(--red);font-size:13px;text-align:center;margin-top:12px;display:none;"></p>
+    <div id="form-login">
+      <div class="fg"><label class="lbl">Email</label>
+        <input id="l-email" type="email" placeholder="tu@email.com"></div>
+      <div class="fg"><label class="lbl">Contraseña</label>
+        <input id="l-pass" type="password" placeholder="••••••••"></div>
+      <button class="btn" id="btn-login" onclick="doLogin()">Ingresar</button>
+      <p class="err" id="err-login"></p>
     </div>
-
-    <!-- Register -->
-    <div id="register-form" style="display:none;">
-      <div class="form-group">
-        <label class="input-label">Tu nombre</label>
-        <input id="reg-name" class="input" type="text" placeholder="Carlos">
-      </div>
-      <div class="form-group">
-        <label class="input-label">Email</label>
-        <input id="reg-email" class="input" type="email" placeholder="tu@email.com">
-      </div>
-      <div class="form-group">
-        <label class="input-label">Contraseña</label>
-        <input id="reg-password" class="input" type="password" placeholder="Mín. 6 caracteres">
-      </div>
-      <button class="btn btn-primary" id="register-btn" onclick="doRegister()">
-        Crear cuenta
-      </button>
-      <p id="reg-error" style="color:var(--red);font-size:13px;text-align:center;margin-top:12px;display:none;"></p>
+    <div id="form-register" style="display:none;">
+      <div class="fg"><label class="lbl">Tu nombre</label>
+        <input id="r-name" type="text" placeholder="Carlos"></div>
+      <div class="fg"><label class="lbl">Email</label>
+        <input id="r-email" type="email" placeholder="tu@email.com"></div>
+      <div class="fg"><label class="lbl">Contraseña</label>
+        <input id="r-pass" type="password" placeholder="Min. 6 caracteres"></div>
+      <button class="btn" id="btn-register" onclick="doRegister()">Crear cuenta</button>
+      <p class="err" id="err-register"></p>
     </div>
   </div>
 </div>
 
-<!-- ══ ONBOARDING ═════════════════════════════════════════════ -->
-<div id="onboarding">
-  <!-- Indicador de pasos -->
-  <div class="ob-header">
-    <div class="ob-step-indicator" id="ob-dots"></div>
+<div id="dbg-btn" onclick="toggleDbg()">&#x1F41B;</div>
+<div id="dbg-panel">
+  <div id="dbg-hdr">
+    <span>CONSOLA DEBUG</span>
+    <button onclick="document.getElementById('dbg-log').innerHTML=''">Limpiar</button>
   </div>
-
-  <!-- PASO 1: Bienvenida / tipo de cuenta -->
-  <div class="onboarding-step active" id="ob-step-1">
-    <div class="ob-body">
-      <span class="ob-emoji">👋</span>
-      <h2 class="ob-title">¡Bienvenido!</h2>
-      <p class="ob-desc">¿Tu cuenta es para uso personal o la vas a compartir con tu pareja?</p>
-      <div class="account-type-grid">
-        <div class="type-card" onclick="selectAccountType('personal', this)">
-          <span class="icon">👤</span>
-          <div class="label">Personal</div>
-          <div class="desc">Solo para mí</div>
-        </div>
-        <div class="type-card" onclick="selectAccountType('couple', this)">
-          <span class="icon">👫</span>
-          <div class="label">En pareja</div>
-          <div class="desc">Con mi pareja</div>
-        </div>
-      </div>
-    </div>
-    <div class="ob-footer">
-      <button class="btn btn-primary" onclick="obNext()" id="ob-btn-1" disabled>Continuar</button>
-    </div>
-  </div>
-
-  <!-- PASO 2: Moneda base -->
-  <div class="onboarding-step" id="ob-step-2">
-    <div class="ob-body">
-      <span class="ob-emoji">💱</span>
-      <h2 class="ob-title">¿Cuál es tu moneda principal?</h2>
-      <p class="ob-desc">El dólar (USD) es la moneda base. Todo se mostrará en USD para comparar fácilmente.</p>
-      <div class="form-group">
-        <label class="input-label">País / Región</label>
-        <select class="input" id="ob-currency">
-          <option value="USD">🇺🇸 Dólar americano (USD)</option>
-          <option value="DOP">🇩🇴 Peso dominicano (DOP)</option>
-          <option value="MXN">🇲🇽 Peso mexicano (MXN)</option>
-          <option value="ARS">🇦🇷 Peso argentino (ARS)</option>
-          <option value="COP">🇨🇴 Peso colombiano (COP)</option>
-          <option value="EUR">🇪🇺 Euro (EUR)</option>
-          <option value="GBP">🇬🇧 Libra esterlina (GBP)</option>
-          <option value="CAD">🇨🇦 Dólar canadiense (CAD)</option>
-          <option value="BRL">🇧🇷 Real brasileño (BRL)</option>
-          <option value="CLP">🇨🇱 Peso chileno (CLP)</option>
-        </select>
-      </div>
-    </div>
-    <div class="ob-footer">
-      <button class="btn btn-primary" onclick="obNext()">Continuar</button>
-    </div>
-  </div>
-
-  <!-- PASO 3: Agregar cuentas/tarjetas -->
-  <div class="onboarding-step" id="ob-step-3">
-    <div class="ob-body">
-      <span class="ob-emoji">🏦</span>
-      <h2 class="ob-title">Agrega tus cuentas</h2>
-      <p class="ob-desc">Podés agregar cuentas de ahorro, débito, crédito y efectivo. También podés hacerlo después.</p>
-
-      <div class="added-accounts" id="ob-accounts-list"></div>
-
-      <button class="btn btn-secondary" style="width:100%;margin-bottom:12px;" onclick="openObAccountModal()">
-        + Agregar cuenta o tarjeta
-      </button>
-    </div>
-    <div class="ob-footer">
-      <button class="btn btn-primary" onclick="obNext()">
-        Continuar <span id="ob-acc-count" style="opacity:0.7;font-weight:400;"></span>
-      </button>
-    </div>
-  </div>
-
-  <!-- PASO 4: ¿Tenés negocio? -->
-  <div class="onboarding-step" id="ob-step-4">
-    <div class="ob-body">
-      <span class="ob-emoji">🏢</span>
-      <h2 class="ob-title">¿Tenés participación en un negocio?</h2>
-      <p class="ob-desc">Si sos socio o dueño de un negocio, podés registrar tu inversión y los ingresos que genera.</p>
-      <div style="display:flex;gap:10px;">
-        <div class="type-card" id="ob-biz-no" onclick="selectBizOption(false, this)" style="flex:1;">
-          <span class="icon">❌</span>
-          <div class="label">No por ahora</div>
-        </div>
-        <div class="type-card" id="ob-biz-yes" onclick="selectBizOption(true, this)" style="flex:1;">
-          <span class="icon">✅</span>
-          <div class="label">Sí, agregar negocio</div>
-        </div>
-      </div>
-      <div id="ob-biz-form" style="display:none;margin-top:20px;">
-        <div class="form-group">
-          <label class="input-label">Nombre del negocio</label>
-          <input id="ob-biz-name" class="input" placeholder="Ej: Café del Centro">
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div class="form-group">
-            <label class="input-label">Mi participación (%)</label>
-            <input id="ob-biz-pct" class="input" type="number" placeholder="35" min="1" max="100">
-          </div>
-          <div class="form-group">
-            <label class="input-label">Capital invertido</label>
-            <input id="ob-biz-inv" class="input" type="number" placeholder="5000">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="input-label">Fecha de inicio</label>
-          <input id="ob-biz-date" class="input" type="date">
-        </div>
-      </div>
-    </div>
-    <div class="ob-footer">
-      <button class="btn btn-primary" onclick="obNext()">Continuar</button>
-    </div>
-  </div>
-
-  <!-- PASO 5: Pareja (solo si eligió "en pareja") -->
-  <div class="onboarding-step" id="ob-step-5">
-    <div class="ob-body">
-      <span class="ob-emoji">💑</span>
-      <h2 class="ob-title">Conectá con tu pareja</h2>
-      <p class="ob-desc">Compartí este código con tu pareja para vincular las cuentas.</p>
-
-      <div style="background:var(--accent-bg);border-radius:var(--radius-sm);padding:20px;text-align:center;margin-bottom:20px;">
-        <p style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:8px;">TU CÓDIGO DE INVITACIÓN</p>
-        <p id="ob-invite-code" style="font-size:36px;font-weight:700;color:var(--accent);letter-spacing:4px;">----</p>
-        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="copyInviteCode()">Copiar código</button>
-      </div>
-
-      <div class="divider">o ingresá el código de tu pareja</div>
-
-      <div class="form-group">
-        <label class="input-label">Código de tu pareja</label>
-        <input id="ob-partner-code" class="input" placeholder="ej: a3f9b2c1" style="text-align:center;font-size:18px;letter-spacing:3px;">
-      </div>
-      <button class="btn btn-secondary" style="width:100%;" onclick="joinCouple()">Vincularme con mi pareja</button>
-    </div>
-    <div class="ob-footer">
-      <button class="btn btn-primary" onclick="finishOnboarding()">Empezar a usar la app</button>
-    </div>
-  </div>
-
-  <!-- PASO 5 (sin pareja): Listo -->
-  <div class="onboarding-step" id="ob-step-5-solo">
-    <div class="ob-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;">
-      <span class="ob-emoji">🎉</span>
-      <h2 class="ob-title">¡Todo listo!</h2>
-      <p class="ob-desc">Tu cuenta está configurada. Podés empezar a registrar tus finanzas.</p>
-    </div>
-    <div class="ob-footer">
-      <button class="btn btn-primary" onclick="finishOnboarding()">Empezar a usar la app</button>
-    </div>
-  </div>
+  <div id="dbg-log"></div>
 </div>
 
-<!-- ══ MODAL: AGREGAR CUENTA EN ONBOARDING ═══════════════════ -->
-<div class="modal-overlay" id="ob-account-modal" onclick="closeObModal(event)">
-  <div class="modal-sheet" onclick="event.stopPropagation()">
-    <div class="drag-handle"></div>
-    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:18px;">Agregar cuenta</h3>
-
-    <div class="form-group">
-      <label class="input-label">Tipo de cuenta</label>
-      <select class="input" id="ob-acc-type" onchange="onAccTypeChange()">
-        <option value="savings">🏦 Cuenta de ahorro</option>
-        <option value="checking">💳 Cuenta corriente / Débito</option>
-        <option value="credit">💎 Tarjeta de crédito</option>
-        <option value="cash">💵 Efectivo</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="input-label">Nombre</label>
-      <input id="ob-acc-name" class="input" placeholder="Ej: Chase, BHD, Efectivo USD">
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div class="form-group">
-        <label class="input-label">Divisa</label>
-        <select class="input" id="ob-acc-currency">
-          <option value="USD">USD 🇺🇸</option>
-          <option value="DOP">DOP 🇩🇴</option>
-          <option value="EUR">EUR 🇪🇺</option>
-          <option value="GBP">GBP 🇬🇧</option>
-          <option value="CAD">CAD 🇨🇦</option>
-          <option value="MXN">MXN 🇲🇽</option>
-          <option value="ARS">ARS 🇦🇷</option>
-          <option value="BRL">BRL 🇧🇷</option>
-          <option value="COP">COP 🇨🇴</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="input-label">Saldo actual</label>
-        <input id="ob-acc-balance" class="input" type="number" placeholder="0.00">
-      </div>
-    </div>
-
-    <!-- Campos extra para tarjeta de crédito -->
-    <div id="credit-fields" style="display:none;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="form-group">
-          <label class="input-label">Límite de crédito</label>
-          <input id="ob-acc-limit" class="input" type="number" placeholder="10000">
-        </div>
-        <div class="form-group">
-          <label class="input-label">% Cashback</label>
-          <input id="ob-acc-cashback" class="input" type="number" placeholder="1.5" step="0.1">
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="form-group">
-          <label class="input-label">Día de corte</label>
-          <input id="ob-acc-cutoff" class="input" type="number" placeholder="25" min="1" max="31">
-        </div>
-        <div class="form-group">
-          <label class="input-label">Día de pago</label>
-          <input id="ob-acc-dueday" class="input" type="number" placeholder="15" min="1" max="31">
-        </div>
-      </div>
-    </div>
-
-    <!-- Campos extra para cuenta de ahorro -->
-    <div id="savings-fields" style="display:none;">
-      <div class="form-group">
-        <label class="input-label">Tasa de interés anual (%)</label>
-        <input id="ob-acc-interest" class="input" type="number" placeholder="2.5" step="0.1">
-      </div>
-    </div>
-
-    <button class="btn btn-primary" onclick="addObAccount()">Guardar cuenta</button>
-  </div>
-</div>
-
-<!-- Toast global -->
-<div class="toast" id="toast"></div>
-
-<script src="js/config.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/rates.js"></script>
-<script src="js/db.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-// ── ESTADO GLOBAL DEL ONBOARDING ──────────────────────────
-const ob = {
-  step: 1,
-  totalSteps: 5,
-  accountType: null,    // 'personal' | 'couple'
-  currency: 'USD',
-  accounts: [],
-  hasBusiness: false,
-  bizData: null,
-  inviteCode: null
+(function() {
+  function dbgLine(type, args) {
+    var log = document.getElementById('dbg-log');
+    if (!log) return;
+    var msg = Array.from(args).map(function(a) {
+      if (a instanceof Error) return a.message;
+      try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
+      catch(e) { return '[objeto]'; }
+    }).join(' ');
+    var t = new Date().toLocaleTimeString('es');
+    var d = document.createElement('div');
+    d.className = 'dl dl-' + type;
+    d.textContent = '[' + t + '] ' + type.toUpperCase() + ': ' + msg;
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+    if (type === 'error') document.getElementById('dbg-panel').style.display = 'block';
+  }
+  ['log','error','warn','info'].forEach(function(t) {
+    var o = console[t].bind(console);
+    console[t] = function() { o.apply(console, arguments); dbgLine(t, arguments); };
+  });
+  window.addEventListener('error', function(e) {
+    dbgLine('error', [e.message + ' ' + (e.filename||'').split('/').pop() + ':' + e.lineno]);
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    dbgLine('error', ['Unhandled: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))]);
+  });
+})();
+
+window.toggleDbg = function() {
+  var p = document.getElementById('dbg-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
 };
 
-// ── INICIALIZACIÓN ─────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
-  applyDarkMode();
-  const user = await Auth.getUser();
-  if (user) {
-    const complete = await Auth.isOnboardingComplete();
-    if (complete) {
-      window.location.href = 'app.html';
-    } else {
-      showOnboarding();
-    }
-  }
-});
+window.addEventListener('load', function() {
+  console.log('load event fired');
 
-function applyDarkMode() {
   if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
     document.documentElement.classList.add('dark');
   }
-}
 
-// ── AUTH ───────────────────────────────────────────────────
-function switchAuthTab(tab, el) {
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('login-form').style.display    = tab === 'login'    ? 'block' : 'none';
-  document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
-}
-
-async function doLogin() {
-  const btn   = document.getElementById('login-btn');
-  const email = document.getElementById('login-email').value.trim();
-  const pass  = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-error');
-  errEl.style.display = 'none';
-  btn.innerHTML = '<span class="spinner"></span>';
-  btn.disabled = true;
-
-  const { error } = await Auth.signIn(email, pass);
-  if (error) {
-    errEl.textContent = 'Email o contraseña incorrectos';
-    errEl.style.display = 'block';
-    btn.innerHTML = 'Ingresar';
-    btn.disabled = false;
+  if (typeof supabase === 'undefined') {
+    console.error('supabase lib no disponible');
     return;
   }
-  const complete = await Auth.isOnboardingComplete();
-  window.location.href = complete ? 'app.html' : '#';
-  if (!complete) showOnboarding();
-}
+  console.log('supabase lib OK');
 
-async function doRegister() {
-  const btn   = document.getElementById('register-btn');
-  const name  = document.getElementById('reg-name').value.trim();
-  const email = document.getElementById('reg-email').value.trim();
-  const pass  = document.getElementById('reg-password').value;
-  const errEl = document.getElementById('reg-error');
-  errEl.style.display = 'none';
-
-  if (!name || !email || !pass) { errEl.textContent = 'Completá todos los campos'; errEl.style.display = 'block'; return; }
-  if (pass.length < 6) { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres'; errEl.style.display = 'block'; return; }
-
-  btn.innerHTML = '<span class="spinner"></span>';
-  btn.disabled = true;
-
-  const { error } = await Auth.signUp(email, pass, name);
-  if (error) {
-    errEl.textContent = error.message.includes('already') ? 'Este email ya está registrado' : 'Error al registrar. Intentá de nuevo.';
-    errEl.style.display = 'block';
-    btn.innerHTML = 'Crear cuenta';
-    btn.disabled = false;
+  var sb;
+  try {
+    sb = supabase.createClient(
+      'https://kidczvzfmhkdzxigfntz.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZGN6dnpmbWhrZHp4aWdmbnR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyOTExNTQsImV4cCI6MjA4ODg2NzE1NH0.gNWpp_PxjFlSeYzHNWzujD1UQfdK8ocaHgNswy8atxU'
+    );
+    console.log('sb client OK');
+  } catch(e) {
+    console.error('createClient failed: ' + e.message);
     return;
   }
-  showOnboarding();
-}
 
-// ── ONBOARDING ─────────────────────────────────────────────
-function showOnboarding() {
-  document.getElementById('auth-screen').style.display = 'none';
-  const el = document.getElementById('onboarding');
-  el.style.display = 'flex';
-  el.style.flexDirection = 'column';
-  renderObDots();
-}
+  sb.auth.getSession().then(function(r) {
+    if (r.error) { console.error('getSession error: ' + r.error.message); return; }
+    if (r.data && r.data.session) { window.location.href = 'app.html'; }
+    else { console.log('no session, showing login'); }
+  }).catch(function(e) { console.error('getSession exception: ' + e.message); });
 
-function renderObDots() {
-  const total = ob.accountType === 'personal' ? 4 : 5;
-  const dots = document.getElementById('ob-dots');
-  dots.innerHTML = Array.from({ length: total }, (_, i) =>
-    `<div class="ob-dot ${i + 1 === ob.step ? 'active' : ''}"></div>`
-  ).join('');
-}
+  window.switchTab = function(tab) {
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    document.getElementById('form-login').style.display    = tab === 'login'    ? 'block' : 'none';
+    document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
+  };
 
-function showObStep(step) {
-  document.querySelectorAll('.onboarding-step').forEach(s => s.classList.remove('active'));
-  const el = document.getElementById('ob-step-' + step);
-  if (el) el.classList.add('active');
-  ob.step = step;
-  renderObDots();
-}
-
-async function obNext() {
-  if (ob.step === 1) {
-    if (!ob.accountType) return;
-    showObStep(2);
-  } else if (ob.step === 2) {
-    ob.currency = document.getElementById('ob-currency').value;
-    await DB.updateProfile({ base_currency: ob.currency });
-    showObStep(3);
-  } else if (ob.step === 3) {
-    showObStep(4);
-  } else if (ob.step === 4) {
-    // Guardar negocio si eligió
-    if (ob.hasBusiness && document.getElementById('ob-biz-name').value) {
-      await DB.createBusiness({
-        name: document.getElementById('ob-biz-name').value,
-        ownership_percent: parseFloat(document.getElementById('ob-biz-pct').value) || 0,
-        initial_investment: parseFloat(document.getElementById('ob-biz-inv').value) || 0,
-        currency: ob.currency,
-        start_date: document.getElementById('ob-biz-date').value || new Date().toISOString().split('T')[0]
-      });
-    }
-    if (ob.accountType === 'couple') {
-      // Generar código de invitación
-      const couple = await DB.createCoupleInvite();
-      if (couple) {
-        ob.inviteCode = couple.invite_code;
-        document.getElementById('ob-invite-code').textContent = couple.invite_code.toUpperCase();
-      }
-      showObStep(5);
-    } else {
-      showObStep('5-solo');
-    }
+  function setBtn(id, loading) {
+    var b = document.getElementById(id);
+    b.disabled = loading;
+    b.innerHTML = loading ? '<div class="spinner"></div>' : (id === 'btn-login' ? 'Ingresar' : 'Crear cuenta');
   }
-}
+  function showErr(id, msg) { var e = document.getElementById(id); e.textContent = msg; e.style.display = 'block'; }
+  function hideErr(id) { document.getElementById(id).style.display = 'none'; }
 
-function selectAccountType(type, el) {
-  ob.accountType = type;
-  document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  document.getElementById('ob-btn-1').disabled = false;
-}
+  window.doLogin = async function() {
+    var email = document.getElementById('l-email').value.trim();
+    var pass  = document.getElementById('l-pass').value;
+    hideErr('err-login');
+    if (!email || !pass) { showErr('err-login', 'Ingresa email y contraseña'); return; }
+    setBtn('btn-login', true);
+    console.log('login attempt: ' + email);
+    try {
+      var r = await sb.auth.signInWithPassword({ email: email, password: pass });
+      console.log('login result error=' + (r.error ? r.error.message : 'none') + ' session=' + !!(r.data && r.data.session));
+      if (r.error) { showErr('err-login', 'Email o contraseña incorrectos: ' + r.error.message); setBtn('btn-login', false); return; }
+      if (r.data && r.data.session) { window.location.href = 'app.html'; }
+      else { showErr('err-login', 'Sin sesión en respuesta'); setBtn('btn-login', false); }
+    } catch(e) { console.error('login exception: ' + e.message); showErr('err-login', e.message); setBtn('btn-login', false); }
+  };
 
-function selectBizOption(has, el) {
-  ob.hasBusiness = has;
-  document.querySelectorAll('#ob-step-4 .type-card').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  document.getElementById('ob-biz-form').style.display = has ? 'block' : 'none';
-}
+  window.doRegister = async function() {
+    var name  = document.getElementById('r-name').value.trim();
+    var email = document.getElementById('r-email').value.trim();
+    var pass  = document.getElementById('r-pass').value;
+    hideErr('err-register');
+    if (!name || !email || !pass) { showErr('err-register', 'Completa todos los campos'); return; }
+    if (pass.length < 6) { showErr('err-register', 'Contraseña: mínimo 6 caracteres'); return; }
+    setBtn('btn-register', true);
+    console.log('register attempt: ' + email);
+    try {
+      var r = await sb.auth.signUp({ email: email, password: pass, options: { data: { name: name } } });
+      console.log('register result error=' + (r.error ? r.error.message : 'none') + ' user=' + !!(r.data && r.data.user));
+      if (r.error) { showErr('err-register', r.error.message); setBtn('btn-register', false); return; }
+      if (r.data && r.data.user) { window.location.href = 'app.html'; }
+      else { showErr('err-register', 'Verifica tu email para confirmar.'); setBtn('btn-register', false); }
+    } catch(e) { console.error('register exception: ' + e.message); showErr('err-register', e.message); setBtn('btn-register', false); }
+  };
 
-// ── CUENTAS EN ONBOARDING ─────────────────────────────────
-function openObAccountModal() {
-  document.getElementById('ob-account-modal').classList.add('open');
-}
-function closeObModal(e) {
-  if (e.target === document.getElementById('ob-account-modal')) {
-    document.getElementById('ob-account-modal').classList.remove('open');
-  }
-}
-function onAccTypeChange() {
-  const type = document.getElementById('ob-acc-type').value;
-  document.getElementById('credit-fields').style.display  = type === 'credit'  ? 'block' : 'none';
-  document.getElementById('savings-fields').style.display = type === 'savings' ? 'block' : 'none';
-}
-
-async function addObAccount() {
-  const type    = document.getElementById('ob-acc-type').value;
-  const name    = document.getElementById('ob-acc-name').value.trim();
-  const currency= document.getElementById('ob-acc-currency').value;
-  const balance = parseFloat(document.getElementById('ob-acc-balance').value) || 0;
-  if (!name) { showToast('Ingresá un nombre para la cuenta', 'error'); return; }
-
-  const account = { name, type, currency, balance };
-  if (type === 'credit') {
-    account.credit_limit   = parseFloat(document.getElementById('ob-acc-limit').value)    || 0;
-    account.cashback_rate  = parseFloat(document.getElementById('ob-acc-cashback').value)  || 0;
-    account.cut_off_day    = parseInt(document.getElementById('ob-acc-cutoff').value)       || null;
-    account.payment_due_day= parseInt(document.getElementById('ob-acc-dueday').value)      || null;
-    account.credit_reminder_enabled = true;
-  }
-  if (type === 'savings') {
-    account.interest_rate = parseFloat(document.getElementById('ob-acc-interest').value) || 0;
-  }
-
-  const { data, error } = await DB.createAccount(account);
-  if (error) { showToast('Error al guardar la cuenta', 'error'); return; }
-
-  ob.accounts.push({ ...account, id: data.id });
-  renderObAccounts();
-  document.getElementById('ob-account-modal').classList.remove('open');
-  // Limpiar form
-  document.getElementById('ob-acc-name').value = '';
-  document.getElementById('ob-acc-balance').value = '';
-  showToast('Cuenta agregada ✓', 'success');
-}
-
-function renderObAccounts() {
-  const list = document.getElementById('ob-accounts-list');
-  const typeIcons = { savings:'🏦', checking:'💳', credit:'💎', cash:'💵' };
-  list.innerHTML = ob.accounts.map(a =>
-    `<div class="added-account">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:20px;">${typeIcons[a.type]}</span>
-        <div>
-          <p style="font-size:14px;font-weight:600;color:var(--text1);">${a.name}</p>
-          <p style="font-size:11px;color:var(--text3);">${a.currency} · ${Rates.format(a.balance, a.currency)}</p>
-        </div>
-      </div>
-      <span style="color:var(--text3);font-size:18px;">✓</span>
-    </div>`
-  ).join('');
-  const count = ob.accounts.length;
-  document.getElementById('ob-acc-count').textContent = count > 0 ? `(${count} agregada${count > 1 ? 's' : ''})` : '';
-}
-
-// ── PAREJA ─────────────────────────────────────────────────
-function copyInviteCode() {
-  navigator.clipboard.writeText(ob.inviteCode?.toUpperCase() || '');
-  showToast('Código copiado ✓', 'success');
-}
-
-async function joinCouple() {
-  const code = document.getElementById('ob-partner-code').value.trim().toLowerCase();
-  if (!code) return;
-  const { error } = await DB.joinCouple(code);
-  if (error) { showToast(typeof error === 'string' ? error : 'Código inválido', 'error'); return; }
-  showToast('¡Conectados con tu pareja! 💑', 'success');
-}
-
-async function finishOnboarding() {
-  window.location.href = 'app.html';
-}
-
-// ── UTILS ──────────────────────────────────────────────────
-function showToast(msg, type = '') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = `toast ${type} show`;
-  setTimeout(() => t.classList.remove('show'), 3000);
-}
+});
 </script>
 </body>
 </html>

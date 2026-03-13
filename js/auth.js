@@ -1,34 +1,34 @@
 // ============================================================
-//  FinanzasJuntos — Autenticación y Onboarding
+//  FinanzasJuntos — Auth
+//  Depende de sb (definido en config.js)
 // ============================================================
 
 const Auth = {
 
   async getUser() {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await sb.auth.getUser();
     return user;
   },
 
   async signUp(email, password, name) {
-    const { data, error } = await supabase.auth.signUp({
-      email, password,
+    return sb.auth.signUp({
+      email,
+      password,
       options: { data: { name } }
     });
-    return { data, error };
   },
 
   async signIn(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    return { data, error };
+    return sb.auth.signInWithPassword({ email, password });
   },
 
   async signOut() {
-    await supabase.auth.signOut();
+    await sb.auth.signOut();
     window.location.href = 'index.html';
   },
 
   async isOnboardingComplete() {
-    const { data } = await supabase.from('accounts').select('id').limit(1);
+    const { data } = await sb.from('accounts').select('id').limit(1);
     return data && data.length > 0;
   }
 };

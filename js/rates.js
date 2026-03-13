@@ -46,7 +46,7 @@ const Rates = {
       const rateToUsd = 1 / rates[currency];
 
       // Guardar en Supabase (upsert para actualizar si ya existe)
-      await supabase.from('exchange_rates').upsert({
+      await sb.from('exchange_rates').upsert({
         currency,
         rate_to_usd: rateToUsd,
         fetched_at: new Date().toISOString()

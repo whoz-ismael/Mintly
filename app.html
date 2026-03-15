@@ -731,6 +731,9 @@ async function loadHomeScreen() {
   const month = now.getMonth() + 1;
   const year  = now.getFullYear();
 
+  // Recargar cuentas para tener datos frescos para las alertas
+  state.accounts = await DB.getAccounts();
+
   const totals = await DB.getMonthlyTotals(month, year);
 
   document.getElementById('home-balance').textContent   = Rates.format(totals.balance);
@@ -1180,9 +1183,6 @@ async function renderBusinessTab() {
 }
 
 // ══ MODALES ════════════════════════════════════════════════════
-function openModal(id) {
-  document.getElementById(id).classList.add('open');
-}
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
 }
@@ -1837,11 +1837,42 @@ function showToast(msg, type = '') {
 // Modales de income source y business (básicos)
 function openModal(id) {
   const el = document.getElementById(id);
-  if (el) {
-    el.classList.add('open');
-    // Actualizar selects al abrir
-    if (id === 'add-tx-modal') populateAccountSelects();
-    if (id === 'import-pdf-modal') populateAccountSelects();
+  if (!el) return;
+  el.classList.add('open');
+
+  if (id === 'add-tx-modal') {
+    populateAccountSelects();
+    setTxDefaults();
+  }
+  if (id === 'import-pdf-modal') {
+    populateAccountSelects();
+  }
+  // Limpiar formulario de cuenta cada vez que se abre
+  if (id === 'add-account-modal') {
+    document.getElementById('acc-name').value    = '';
+    document.getElementById('acc-balance').value = '';
+    document.getElementById('acc-type').value    = 'savings';
+    document.getElementById('acc-currency').value = 'USD';
+    const limitEl = document.getElementById('acc-limit');
+    const cutoffEl = document.getElementById('acc-cutoff');
+    const duedayEl = document.getElementById('acc-dueday');
+    const interestEl = document.getElementById('acc-interest');
+    if (limitEl)    limitEl.value    = '';
+    if (cutoffEl)   cutoffEl.value   = '';
+    if (duedayEl)   duedayEl.value   = '';
+    if (interestEl) interestEl.value = '';
+    document.getElementById('acc-credit-fields').style.display  = 'none';
+    document.getElementById('acc-savings-fields').style.display = 'none';
+  }
+  // Limpiar formulario de meta
+  if (id === 'add-goal-modal') {
+    document.getElementById('goal-name').value     = '';
+    document.getElementById('goal-target').value   = '';
+    document.getElementById('goal-deadline').value = '';
+    document.querySelectorAll('#goal-icon-picker span').forEach((s, i) => {
+      s.style.background = i === 0 ? 'var(--accent-bg)' : 'var(--surface2)';
+    });
+    _selectedGoalIcon = '🏖️';
   }
 }
 </script>

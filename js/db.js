@@ -210,14 +210,17 @@ const DB = {
     const from = `${year}-${String(month).padStart(2,'0')}-01`;
     const to   = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
     const { data } = await sb.from('transactions')
-      .select('type, amount_usd')
+      .select('type, amount_usd, amount_native, currency')
       .eq('user_id', user.id)
       .gte('date', from).lte('date', to);
 
     let income = 0, expenses = 0;
     (data || []).forEach(t => {
-      if (t.type === 'income' || t.type === 'interest') income += parseFloat(t.amount_usd);
-      else if (t.type === 'expense') expenses += parseFloat(t.amount_usd);
+      // Usar amount_usd si existe y es válido, sino amount_native como fallback
+      const usd = parseFloat(t.amount_usd);
+      const val = (!isNaN(usd) && usd > 0) ? usd : parseFloat(t.amount_native) || 0;
+      if (t.type === 'income' || t.type === 'interest') income += val;
+      else if (t.type === 'expense') expenses += val;
     });
     return { income, expenses, balance: income - expenses };
   },

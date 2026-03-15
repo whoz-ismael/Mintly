@@ -140,8 +140,9 @@ const DB = {
       .range(offset, offset + limit - 1);
     if (accountId) query = query.eq('account_id', accountId);
     if (month && year) {
+      const lastDay = new Date(year, month, 0).getDate();
       const from = `${year}-${String(month).padStart(2,'0')}-01`;
-      const to   = `${year}-${String(month).padStart(2,'0')}-31`;
+      const to   = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
       query = query.gte('date', from).lte('date', to);
     }
     const { data } = await query;
@@ -185,8 +186,9 @@ const DB = {
   // Resumen de gastos por categoría en un mes
   async getSpendingByCategory(month, year) {
     const { data: { user } } = await sb.auth.getUser();
+    const lastDay = new Date(year, month, 0).getDate();
     const from = `${year}-${String(month).padStart(2,'0')}-01`;
-    const to   = `${year}-${String(month).padStart(2,'0')}-31`;
+    const to   = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
     const { data } = await sb.from('transactions')
       .select('category_id, amount_usd, type')
       .eq('user_id', user.id)
@@ -204,8 +206,9 @@ const DB = {
   // Totales del mes (ingresos y gastos)
   async getMonthlyTotals(month, year) {
     const { data: { user } } = await sb.auth.getUser();
+    const lastDay = new Date(year, month, 0).getDate();
     const from = `${year}-${String(month).padStart(2,'0')}-01`;
-    const to   = `${year}-${String(month).padStart(2,'0')}-31`;
+    const to   = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
     const { data } = await sb.from('transactions')
       .select('type, amount_usd')
       .eq('user_id', user.id)

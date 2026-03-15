@@ -192,6 +192,22 @@
     </div>
   </div>
 
+  <!-- ══ METAS ════════════════════════════════════════════════ -->
+  <div id="screen-metas" class="screen">
+    <div class="screen-header">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <h2 class="screen-title">Metas de ahorro</h2>
+          <p class="screen-subtitle" id="metas-subtitle">Cargando...</p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('add-goal-modal')">+ Meta</button>
+      </div>
+    </div>
+    <div style="padding:16px;" id="goals-container">
+      <p style="font-size:13px;color:var(--text3);text-align:center;padding:24px 0;">Cargando...</p>
+    </div>
+  </div>
+
   <!-- ══ AJUSTES ═══════════════════════════════════════════ -->
   <div id="screen-ajustes" class="screen">
     <div class="screen-header">
@@ -298,6 +314,10 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
       Cuentas
     </div>
+    <div class="nav-item" id="nav-metas" onclick="navigate('metas')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      Metas
+    </div>
     <div class="nav-item" id="nav-ajustes" onclick="navigate('ajustes')">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       Ajustes
@@ -392,7 +412,7 @@
     <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:16px;">Nueva cuenta</h3>
     <div class="form-group">
       <label class="input-label">Tipo</label>
-      <select class="input" id="acc-type" onchange="onAccTypeChange2()">
+      <select class="input" id="acc-type" onchange="onAccTypeChange2();">
         <option value="savings">🏦 Cuenta de ahorro</option>
         <option value="checking">💳 Cuenta corriente / Débito</option>
         <option value="credit">💎 Tarjeta de crédito</option>
@@ -501,6 +521,86 @@
   </div>
 </div>
 
+<!-- Modal: nueva meta -->
+<div class="modal-overlay" id="add-goal-modal" onclick="closeModalClick(event,'add-goal-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:16px;">Nueva meta de ahorro</h3>
+    <div class="form-group">
+      <label class="input-label">Nombre de la meta</label>
+      <input id="goal-name" class="input" placeholder="Ej: Vacaciones, Fondo de emergencia...">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Monto objetivo</label>
+        <input id="goal-target" class="input" type="number" placeholder="5000">
+      </div>
+      <div class="form-group">
+        <label class="input-label">Divisa</label>
+        <select id="goal-currency" class="input">
+          <option value="USD">USD</option>
+          <option value="DOP">DOP</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="CAD">CAD</option>
+          <option value="MXN">MXN</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="input-label">Fecha límite (opcional)</label>
+      <input id="goal-deadline" class="input" type="date">
+    </div>
+    <div class="form-group">
+      <label class="input-label">Ícono</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;" id="goal-icon-picker">
+        <span onclick="selectGoalIcon(this)" data-icon="🏖️" style="font-size:24px;padding:6px;border-radius:10px;cursor:pointer;background:var(--accent-bg);">🏖️</span>
+        <span onclick="selectGoalIcon(this)" data-icon="🚗" style="font-size:24px;padding:6px;border-radius:10px;cursor:pointer;background:var(--surface2);">🚗</span>
+        <span onclick="selectGoalIcon(this)" data-icon="🏠" style="font-size:24px;padding:6px;border-radius:10px;cursor:pointer;background:var(--surface2);">🏠</span>
+        <span onclick="selectGoalIcon(this)" data-icon="💍" style="font-size:24px;padding:6px;border-radius:10px;cursor:pointer;background:var(--surface2);">💍</span>
+        <span onclick="selectGoalIcon(this)" data-icon="📱" style="font-size:24px;padding:6px;border-radius:10px;cursor:pointer;background:var(--surface2);">📱</span>
+        <span onclick="selectGoalIcon(this)" data-icon="🎓" style="font-size:24px;padding:6px;border-radius:10px;cursor:pointer;background:var(--surface2);">🎓</span>
+        <span onclick="selectGoalIcon(this)" data-icon="💪" style="font-size:24px;padding:6px;border-radius:10px;cursor:pointer;background:var(--surface2);">💪</span>
+        <span onclick="selectGoalIcon(this)" data-icon="🛡️" style="font-size:24px;padding:6px;border-radius:10px;cursor:pointer;background:var(--surface2);">🛡️</span>
+        <span onclick="selectGoalIcon(this)" data-icon="✈️" style="font-size:24px;padding:6px;border-radius:10px;cursor:pointer;background:var(--surface2);">✈️</span>
+        <span onclick="selectGoalIcon(this)" data-icon="🎯" style="font-size:24px;padding:6px;border-radius:10px;cursor:pointer;background:var(--surface2);">🎯</span>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveGoal()">Crear meta</button>
+  </div>
+</div>
+
+<!-- Modal: abonar a meta -->
+<div class="modal-overlay" id="add-contribution-modal" onclick="closeModalClick(event,'add-contribution-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:4px;">Abonar a meta</h3>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:16px;" id="contribution-goal-name"></p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Monto</label>
+        <input id="contribution-amount" class="input" type="number" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="input-label">Divisa</label>
+        <select id="contribution-currency" class="input">
+          <option value="USD">USD</option>
+          <option value="DOP">DOP</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="CAD">CAD</option>
+          <option value="MXN">MXN</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="input-label">Nota (opcional)</label>
+      <input id="contribution-note" class="input" placeholder="Ej: Quincena de marzo">
+    </div>
+    <button class="btn btn-primary" onclick="saveContribution()">Guardar abono</button>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -561,6 +661,7 @@ function navigate(screen) {
   if (screen === 'budget')  loadBudgetScreen();
   if (screen === 'gastos')  loadTransactions();
   if (screen === 'cards')   loadAccountsTab('accounts');
+  if (screen === 'metas')   loadGoals();
   if (screen === 'ajustes') loadSettings();
 }
 
@@ -643,31 +744,37 @@ async function loadHomeScreen() {
 }
 
 async function renderIncomeBreakdown(month, year) {
+  // Último día real del mes
+  const lastDay = new Date(year, month, 0).getDate();
   const from = `${year}-${String(month).padStart(2,'0')}-01`;
-  const to   = `${year}-${String(month).padStart(2,'0')}-31`;
-  const { data } = await supabase.from('transactions')
-    .select('type, amount_usd')
+  const to   = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+
+  const { data, error } = await sb.from('transactions')
+    .select('type, amount_usd, description')
     .eq('user_id', state.profile?.id)
     .in('type', ['income', 'interest'])
     .gte('date', from).lte('date', to);
 
-  let salary = 0, freelance = 0, interest = 0, other = 0;
+  if (error) { console.error('renderIncomeBreakdown error:', error.message); }
+
+  let interest = 0, income = 0;
   (data || []).forEach(t => {
     if (t.type === 'interest') interest += parseFloat(t.amount_usd);
-    else other += parseFloat(t.amount_usd); // simplificado — en producción filtraríamos por income_source
+    else income += parseFloat(t.amount_usd);
   });
 
   const el = document.getElementById('home-income-breakdown');
   const rows = [];
-  if (salary > 0)    rows.push(`<div class="income-row"><span style="font-size:12px;color:var(--text2);">💼 Nómina</span><span style="font-size:12px;font-weight:600;color:var(--green);">+${Rates.format(salary)}</span></div>`);
-  if (freelance > 0) rows.push(`<div class="income-row"><span style="font-size:12px;color:var(--text2);">🛠 Freelance</span><span style="font-size:12px;font-weight:600;color:var(--green);">+${Rates.format(freelance)}</span></div>`);
-  if (interest > 0)  rows.push(`<div class="income-row"><span style="font-size:12px;color:var(--text2);">🏦 Intereses</span><span style="font-size:12px;font-weight:600;color:var(--green);">+${Rates.format(interest)}</span></div>`);
-  if (other > 0)     rows.push(`<div class="income-row"><span style="font-size:12px;color:var(--text2);">📥 Otros ingresos</span><span style="font-size:12px;font-weight:600;color:var(--green);">+${Rates.format(other)}</span></div>`);
+  if (income > 0)   rows.push(`<div class="income-row"><span style="font-size:12px;color:var(--text2);">📥 Ingresos</span><span style="font-size:12px;font-weight:600;color:var(--green);">+${Rates.format(income)}</span></div>`);
+  if (interest > 0) rows.push(`<div class="income-row"><span style="font-size:12px;color:var(--text2);">🏦 Intereses</span><span style="font-size:12px;font-weight:600;color:var(--green);">+${Rates.format(interest)}</span></div>`);
 
-  const total = salary + freelance + interest + other;
-  rows.push(`<div class="income-row" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;"><span style="font-size:12px;font-weight:700;color:var(--text1);">Total ingresos</span><span style="font-size:13px;font-weight:700;color:var(--green);">+${Rates.format(total)}</span></div>`);
-
-  el.innerHTML = rows.length > 1 ? rows.join('') : '<div class="income-row"><span style="font-size:12px;color:var(--text3);">Sin ingresos registrados este mes</span></div>';
+  const total = income + interest;
+  if (total > 0) {
+    rows.push(`<div class="income-row" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;"><span style="font-size:12px;font-weight:700;color:var(--text1);">Total ingresos</span><span style="font-size:13px;font-weight:700;color:var(--green);">+${Rates.format(total)}</span></div>`);
+    el.innerHTML = rows.join('');
+  } else {
+    el.innerHTML = '<div class="income-row"><span style="font-size:12px;color:var(--text3);">Sin ingresos registrados este mes</span></div>';
+  }
 }
 
 async function renderBudgetPreview(month, year) {
@@ -704,7 +811,7 @@ async function renderAlerts() {
 
   accounts.forEach(acc => {
     if (acc.type === 'credit' && acc.credit_limit > 0) {
-      const used = acc.credit_limit - acc.balance;
+      const used = acc.balance;
       const util = (used / acc.credit_limit) * 100;
       if (util >= 80) {
         alerts.push({ bg: 'var(--amber-bg)', color: 'var(--amber)', icon: '💳',
@@ -917,7 +1024,7 @@ async function renderAccountsList() {
   for (const acc of accounts) {
     const balanceUsd = await Rates.toUSD(acc.balance, acc.currency);
     if (acc.type === 'credit') {
-      const used = acc.credit_limit - acc.balance;
+      const used = acc.balance;
       const util = acc.credit_limit > 0 ? (used / acc.credit_limit) * 100 : 0;
       const utilColor = util >= 80 ? 'var(--red)' : util >= 60 ? 'var(--amber)' : 'var(--green)';
       html += `
@@ -931,7 +1038,8 @@ async function renderAccountsList() {
               <button onclick="openCreditLimitModal('${acc.id}')" style="font-size:10px;font-weight:600;background:rgba(255,255,255,0.15);border:none;color:white;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;">✏ Editar límite</button>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
-              <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Disponible</p><p style="font-size:17px;font-weight:700;">${Rates.format(acc.balance, acc.currency)}</p></div>
+              <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Adeudado</p><p style="font-size:17px;font-weight:700;color:#FCA5A5;">${Rates.format(acc.balance, acc.currency)}</p></div>
+              <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Disponible</p><p style="font-size:17px;font-weight:700;color:#86EFAC;">${Rates.format(acc.credit_limit - acc.balance, acc.currency)}</p></div>
               <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Límite</p><p style="font-size:17px;font-weight:700;">${Rates.format(acc.credit_limit, acc.currency)}</p></div>
             </div>
             <div>
@@ -1505,6 +1613,218 @@ async function saveDividend(businessId) {
   showToast('Ingreso registrado ✓', 'success');
   renderBusinessTab();
 }
+
+// ══ METAS DE AHORRO ══════════════════════════════════════════
+
+let _selectedGoalIcon = '🏖️';
+let _activeGoalId = null;
+
+function selectGoalIcon(el) {
+  document.querySelectorAll('#goal-icon-picker span').forEach(s => s.style.background = 'var(--surface2)');
+  el.style.background = 'var(--accent-bg)';
+  _selectedGoalIcon = el.dataset.icon;
+}
+
+async function loadGoals() {
+  const goals = await DB.getGoals();
+  const el = document.getElementById('goals-container');
+
+  // Subtitle con resumen
+  const completed = goals.filter(g => g.is_completed).length;
+  document.getElementById('metas-subtitle').textContent =
+    goals.length === 0 ? 'Sin metas aún' :
+    `${goals.length} meta${goals.length > 1 ? 's' : ''} activa${goals.length > 1 ? 's' : ''}${completed ? ` · ${completed} completada${completed > 1 ? 's' : ''}` : ''}`;
+
+  if (goals.length === 0) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">🎯</span>
+        <p class="empty-title">Sin metas de ahorro</p>
+        <p class="empty-desc">Creá una meta para hacer seguimiento de tus ahorros: vacaciones, fondo de emergencia, lo que quieras.</p>
+      </div>`;
+    return;
+  }
+
+  let html = '';
+  for (const goal of goals) {
+    const target  = parseFloat(goal.target_amount);
+    const current = parseFloat(goal.current_amount) || 0;
+    const pct     = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+    const remaining = target - current;
+
+    // Color de la barra según progreso
+    const barColor = pct >= 100 ? 'fill-green' : pct >= 60 ? 'fill-accent' : 'fill-purple';
+
+    // Proyección: promedio de abonos por mes
+    let projection = '';
+    if (goal.deadline) {
+      const today    = new Date();
+      const deadline = new Date(goal.deadline);
+      const monthsLeft = Math.max(0, ((deadline - today) / (1000 * 60 * 60 * 24 * 30)).toFixed(1));
+      if (monthsLeft > 0 && remaining > 0) {
+        const needed = (remaining / monthsLeft).toFixed(0);
+        projection = `Necesitás abonar ${Rates.format(needed, goal.currency)}/mes para llegar a tiempo`;
+      } else if (pct >= 100) {
+        projection = '¡Meta alcanzada! 🎉';
+      }
+    }
+
+    // Fecha límite formateada
+    let deadlineStr = '';
+    if (goal.deadline) {
+      deadlineStr = new Date(goal.deadline + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    html += `
+      <div style="background:var(--surface);border-radius:20px;padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:46px;height:46px;border-radius:14px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;font-size:22px;">${goal.icon || '🎯'}</div>
+            <div>
+              <p style="font-size:16px;font-weight:700;color:var(--text1);">${goal.name}</p>
+              ${deadlineStr ? `<p style="font-size:11px;color:var(--text3);">Límite: ${deadlineStr}</p>` : '<p style="font-size:11px;color:var(--text3);">Sin fecha límite</p>'}
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <p style="font-size:18px;font-weight:700;color:var(--accent);">${pct.toFixed(0)}%</p>
+          </div>
+        </div>
+
+        <div style="margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span style="font-size:13px;font-weight:600;color:var(--text1);">${Rates.format(current, goal.currency)}</span>
+            <span style="font-size:12px;color:var(--text3);">de ${Rates.format(target, goal.currency)}</span>
+          </div>
+          <div class="progress-bar" style="height:10px;">
+            <div class="progress-fill ${barColor}" style="width:${pct}%;"></div>
+          </div>
+        </div>
+
+        ${projection ? `<p style="font-size:12px;color:var(--text3);margin-bottom:10px;">${projection}</p>` : ''}
+
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button onclick="openContributionModal('${goal.id}', '${goal.name}', '${goal.currency}')"
+                  style="flex:1;padding:10px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font, inherit);">
+            + Abonar
+          </button>
+          <button onclick="viewGoalHistory('${goal.id}')"
+                  style="padding:10px 14px;background:var(--surface2);color:var(--text2);border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font, inherit);">
+            Historial
+          </button>
+          <button onclick="deleteGoal('${goal.id}')"
+                  style="padding:10px 14px;background:var(--red-bg);color:var(--red);border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font, inherit);">
+            🗑
+          </button>
+        </div>
+      </div>`;
+  }
+  el.innerHTML = html;
+}
+
+async function saveGoal() {
+  const name     = document.getElementById('goal-name').value.trim();
+  const target   = parseFloat(document.getElementById('goal-target').value);
+  const currency = document.getElementById('goal-currency').value;
+  const deadline = document.getElementById('goal-deadline').value || null;
+  if (!name || !target) { showToast('Ingresá nombre y monto objetivo', 'error'); return; }
+
+  const { data: { user } } = await sb.auth.getUser();
+  const targetUsd = await Rates.toUSD(target, currency);
+
+  const { error } = await sb.from('savings_goals').insert({
+    user_id: user.id, name, icon: _selectedGoalIcon,
+    target_amount: targetUsd, currency, deadline,
+    current_amount: 0, is_completed: false
+  });
+
+  if (error) { console.error(error); showToast('Error al guardar la meta', 'error'); return; }
+  closeModal('add-goal-modal');
+  document.getElementById('goal-name').value = '';
+  document.getElementById('goal-target').value = '';
+  document.getElementById('goal-deadline').value = '';
+  showToast('Meta creada ✓', 'success');
+  loadGoals();
+}
+
+function openContributionModal(goalId, goalName, goalCurrency) {
+  _activeGoalId = goalId;
+  document.getElementById('contribution-goal-name').textContent = goalName;
+  document.getElementById('contribution-currency').value = goalCurrency;
+  document.getElementById('contribution-amount').value = '';
+  document.getElementById('contribution-note').value = '';
+  openModal('add-contribution-modal');
+}
+
+async function saveContribution() {
+  const amount   = parseFloat(document.getElementById('contribution-amount').value);
+  const currency = document.getElementById('contribution-currency').value;
+  const note     = document.getElementById('contribution-note').value.trim();
+  if (!amount || amount <= 0) { showToast('Ingresá un monto válido', 'error'); return; }
+
+  const { data: { user } } = await sb.auth.getUser();
+  const amountUsd = await Rates.toUSD(amount, currency);
+  const today = new Date().toISOString().split('T')[0];
+
+  // Guardar contribución
+  await sb.from('goal_contributions').insert({
+    goal_id: _activeGoalId, user_id: user.id,
+    amount, currency, amount_usd: amountUsd, date: today, note
+  });
+
+  // Actualizar current_amount en la meta
+  const { data: goal } = await sb.from('savings_goals').select('current_amount, target_amount').eq('id', _activeGoalId).single();
+  if (goal) {
+    const newAmount = parseFloat(goal.current_amount) + amountUsd;
+    const isCompleted = newAmount >= parseFloat(goal.target_amount);
+    await sb.from('savings_goals').update({ current_amount: newAmount, is_completed: isCompleted }).eq('id', _activeGoalId);
+    if (isCompleted) showToast('¡Meta alcanzada! 🎉', 'success');
+    else showToast(`+${Rates.format(amount, currency)} abonado ✓`, 'success');
+  }
+
+  closeModal('add-contribution-modal');
+  loadGoals();
+}
+
+async function deleteGoal(goalId) {
+  if (!confirm('¿Eliminar esta meta? Se perderá el historial de abonos.')) return;
+  await sb.from('goal_contributions').delete().eq('goal_id', goalId);
+  await sb.from('savings_goals').delete().eq('id', goalId);
+  showToast('Meta eliminada', '');
+  loadGoals();
+}
+
+async function viewGoalHistory(goalId) {
+  const { data: contributions } = await sb.from('goal_contributions')
+    .select('*').eq('goal_id', goalId).order('date', { ascending: false });
+
+  const existing = document.getElementById('goal-history-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay open';
+  modal.id = 'goal-history-modal';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+  const rows = contributions && contributions.length > 0
+    ? contributions.map(c => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);">
+          <div>
+            <p style="font-size:14px;font-weight:500;color:var(--text1);">${c.note || 'Abono'}</p>
+            <p style="font-size:11px;color:var(--text3);">${new Date(c.date+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</p>
+          </div>
+          <p style="font-size:14px;font-weight:600;color:var(--green);">+${Rates.format(c.amount, c.currency)}</p>
+        </div>`).join('')
+    : '<p style="text-align:center;color:var(--text3);padding:24px 0;">Sin abonos aún</p>';
+
+  modal.innerHTML = `
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="drag-handle"></div>
+      <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:16px;">Historial de abonos</h3>
+      ${rows}
+    </div>`;
+  document.body.appendChild(modal);
+}
+
 
 // ══ HELPERS ══════════════════════════════════════════════════
 function showToast(msg, type = '') {

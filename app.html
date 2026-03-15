@@ -235,7 +235,7 @@
         </div>
         <span style="color:var(--text3);">›</span>
       </div>
-      <div class="list-row" id="couple-settings-row">
+      <div class="list-row" id="couple-settings-row" onclick="openCoupleModal()">
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="icon-box" style="background:var(--accent-bg);">👫</div>
           <div>
@@ -694,6 +694,42 @@
       </div>
     </div>
     <button class="btn btn-primary" onclick="saveBusiness()">Guardar negocio</button>
+  </div>
+</div>
+
+<!-- Modal: vincular pareja -->
+<div class="modal-overlay" id="couple-modal" onclick="closeModalClick(event,'couple-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:6px;">Vincular con tu pareja</h3>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:18px;">Compartí tu código o ingresá el de tu pareja para conectar las cuentas.</p>
+
+    <!-- Mi código -->
+    <div style="background:var(--accent-bg);border-radius:16px;padding:18px;text-align:center;margin-bottom:20px;">
+      <p style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:0.08em;margin-bottom:8px;">TU CÓDIGO DE INVITACIÓN</p>
+      <p id="settings-invite-code" style="font-size:34px;font-weight:700;color:var(--accent);letter-spacing:5px;">----</p>
+      <button onclick="copySettingsCode()" style="margin-top:10px;background:none;border:none;color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Copiar código</button>
+    </div>
+
+    <div style="text-align:center;color:var(--text3);font-size:13px;margin:16px 0;position:relative;">
+      <span style="background:var(--surface);padding:0 12px;position:relative;z-index:1;">o ingresá el de tu pareja</span>
+      <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:var(--border);"></div>
+    </div>
+
+    <div class="form-group">
+      <label class="input-label">Código de tu pareja</label>
+      <input id="settings-partner-code" class="input" placeholder="Ej: A3F9B2C1"
+             style="text-align:center;font-size:20px;letter-spacing:4px;text-transform:uppercase;">
+    </div>
+    <button class="btn btn-primary" id="btn-join-couple" onclick="joinCoupleFromSettings()">Vincularme</button>
+    <p id="couple-modal-error" style="color:var(--red);font-size:13px;text-align:center;margin-top:10px;display:none;"></p>
+
+    <!-- Estado: ya vinculado -->
+    <div id="couple-linked-info" style="display:none;text-align:center;padding:8px 0;">
+      <p style="font-size:32px;margin-bottom:8px;">💑</p>
+      <p style="font-size:16px;font-weight:700;color:var(--text1);" id="couple-partner-name">Conectado</p>
+      <p style="font-size:13px;color:var(--green);margin-top:4px;">✓ Cuenta en pareja activa</p>
+    </div>
   </div>
 </div>
 
@@ -1992,6 +2028,98 @@ async function saveBusiness() {
   document.getElementById('biz-pct').value  = '';
   document.getElementById('biz-inv').value  = '';
   renderBusinessTab();
+}
+
+
+// ══ MODAL DE PAREJA ═══════════════════════════════════════════
+
+async function openCoupleModal() {
+  // Limpiar estado
+  document.getElementById('settings-partner-code').value = '';
+  document.getElementById('couple-modal-error').style.display = 'none';
+
+  if (state.couple) {
+    // Ya vinculado — mostrar info
+    document.getElementById('settings-invite-code').textContent = '----';
+    document.getElementById('couple-linked-info').style.display = 'block';
+    document.getElementById('couple-modal-error').style.display = 'none';
+    const { data: { user } } = await sb.auth.getUser();
+    const partner = state.couple.user1_id === user.id ? state.couple.user2 : state.couple.user1;
+    document.getElementById('couple-partner-name').textContent = partner?.name || 'Tu pareja';
+    // Ocultar sección de vinculación
+    document.querySelector('#couple-modal .form-group').style.display = 'none';
+    document.getElementById('btn-join-couple').style.display = 'none';
+    document.getElementById('settings-invite-code').closest('div').style.display = 'none';
+    document.querySelector('#couple-modal [style*="o ingresá"]').style.display = 'none';
+  } else {
+    // No vinculado — mostrar/crear código
+    document.getElementById('couple-linked-info').style.display = 'none';
+    document.querySelector('#couple-modal .form-group').style.display = 'block';
+    document.getElementById('btn-join-couple').style.display = 'flex';
+    document.getElementById('settings-invite-code').closest('div').style.display = 'block';
+    document.querySelector('#couple-modal [style*="o ingresá"]').style.display = 'block';
+
+    // Buscar si ya tiene un invite pendiente o crear uno nuevo
+    const { data: { user } } = await sb.auth.getUser();
+    let { data: existing } = await sb.from('couples')
+      .select('invite_code').eq('user1_id', user.id).eq('status', 'pending').single();
+
+    if (!existing) {
+      const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const { data: newCouple } = await sb.from('couples')
+        .insert({ user1_id: user.id, invite_code: code, status: 'pending' })
+        .select().single();
+      existing = newCouple;
+    }
+    if (existing) {
+      document.getElementById('settings-invite-code').textContent = existing.invite_code;
+      window._settingsInviteCode = existing.invite_code;
+    }
+  }
+
+  openModal('couple-modal');
+}
+
+function copySettingsCode() {
+  const code = document.getElementById('settings-invite-code').textContent;
+  if (code && code !== '----') {
+    navigator.clipboard.writeText(code).then(() => showToast('Código copiado ✓', 'success'));
+  }
+}
+
+async function joinCoupleFromSettings() {
+  const code = document.getElementById('settings-partner-code').value.trim().toUpperCase();
+  const errEl = document.getElementById('couple-modal-error');
+  errEl.style.display = 'none';
+
+  if (!code) { errEl.textContent = 'Ingresá el código de tu pareja'; errEl.style.display = 'block'; return; }
+
+  const btn = document.getElementById('btn-join-couple');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  const { data: { user } } = await sb.auth.getUser();
+  const { data: couple, error } = await sb.from('couples')
+    .select('*').eq('invite_code', code).eq('status', 'pending').single();
+
+  if (error || !couple) {
+    errEl.textContent = 'Código inválido o ya usado';
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.innerHTML = 'Vincularme';
+    return;
+  }
+  if (couple.user1_id === user.id) {
+    errEl.textContent = 'No podés usar tu propio código';
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.innerHTML = 'Vincularme';
+    return;
+  }
+
+  await sb.from('couples').update({ user2_id: user.id, status: 'active' }).eq('id', couple.id);
+  state.couple = await DB.getCouple();
+  updateProfileUI();
+  closeModal('couple-modal');
+  showToast('¡Conectados con tu pareja! 💑', 'success');
 }
 
 // ══ HELPERS ══════════════════════════════════════════════════

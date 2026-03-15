@@ -610,6 +610,93 @@
   </div>
 </div>
 
+<!-- Modal: nueva fuente de ingreso -->
+<div class="modal-overlay" id="add-income-modal" onclick="closeModalClick(event,'add-income-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:16px;">Nueva fuente de ingreso</h3>
+    <div class="form-group">
+      <label class="input-label">Nombre</label>
+      <input id="inc-name" class="input" placeholder="Ej: Salario, Freelance, Alquiler">
+    </div>
+    <div class="form-group">
+      <label class="input-label">Tipo</label>
+      <select id="inc-type" class="input">
+        <option value="salary">💼 Nómina / Salario</option>
+        <option value="freelance">🛠 Freelance / Extra</option>
+        <option value="business">🏢 Negocio</option>
+        <option value="rental">🏠 Alquiler</option>
+        <option value="other">📥 Otro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="input-label">Frecuencia</label>
+      <select id="inc-frequency" class="input" onchange="onIncFrequencyChange()">
+        <option value="monthly">Mensual</option>
+        <option value="biweekly">Quincenal</option>
+        <option value="variable">Variable (sin monto fijo)</option>
+      </select>
+    </div>
+    <div id="inc-amount-group" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Monto</label>
+        <input id="inc-amount" class="input" type="number" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="input-label">Divisa</label>
+        <select id="inc-currency" class="input">
+          <option value="USD">USD</option>
+          <option value="DOP">DOP</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="CAD">CAD</option>
+          <option value="MXN">MXN</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveIncomeSource()">Guardar</button>
+  </div>
+</div>
+
+<!-- Modal: nuevo negocio -->
+<div class="modal-overlay" id="add-business-modal" onclick="closeModalClick(event,'add-business-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:16px;">Agregar negocio</h3>
+    <div class="form-group">
+      <label class="input-label">Nombre del negocio</label>
+      <input id="biz-name" class="input" placeholder="Ej: Café del Centro">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Mi participación (%)</label>
+        <input id="biz-pct" class="input" type="number" placeholder="35" min="1" max="100">
+      </div>
+      <div class="form-group">
+        <label class="input-label">Capital invertido</label>
+        <input id="biz-inv" class="input" type="number" placeholder="5000">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Divisa</label>
+        <select id="biz-currency" class="input">
+          <option value="USD">USD</option>
+          <option value="DOP">DOP</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="MXN">MXN</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="input-label">Fecha de inicio</label>
+        <input id="biz-start" class="input" type="date">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveBusiness()">Guardar negocio</button>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -1851,6 +1938,62 @@ async function viewGoalHistory(goalId) {
 }
 
 
+
+// ══ FUENTES DE INGRESO ════════════════════════════════════════
+
+function onIncFrequencyChange() {
+  const freq = document.getElementById('inc-frequency').value;
+  document.getElementById('inc-amount-group').style.display = freq === 'variable' ? 'none' : 'grid';
+}
+
+async function saveIncomeSource() {
+  const name      = document.getElementById('inc-name').value.trim();
+  const type      = document.getElementById('inc-type').value;
+  const frequency = document.getElementById('inc-frequency').value;
+  const amount    = frequency !== 'variable' ? parseFloat(document.getElementById('inc-amount').value) || null : null;
+  const currency  = document.getElementById('inc-currency').value;
+  if (!name) { showToast('Ingresá un nombre', 'error'); return; }
+
+  const { data: { user } } = await sb.auth.getUser();
+  const { error } = await sb.from('income_sources').insert({
+    user_id: user.id, name, type, frequency, amount, currency, is_active: true
+  });
+  if (error) { console.error(error); showToast('Error al guardar', 'error'); return; }
+
+  closeModal('add-income-modal');
+  showToast('Fuente de ingreso guardada ✓', 'success');
+  // Limpiar
+  document.getElementById('inc-name').value = '';
+  document.getElementById('inc-amount').value = '';
+  renderIncomeTab();
+}
+
+// ══ NEGOCIOS ══════════════════════════════════════════════════
+
+async function saveBusiness() {
+  const name     = document.getElementById('biz-name').value.trim();
+  const pct      = parseFloat(document.getElementById('biz-pct').value) || 0;
+  const inv      = parseFloat(document.getElementById('biz-inv').value) || 0;
+  const currency = document.getElementById('biz-currency').value;
+  const start    = document.getElementById('biz-start').value || new Date().toISOString().split('T')[0];
+  if (!name) { showToast('Ingresá un nombre', 'error'); return; }
+
+  const { data: { user } } = await sb.auth.getUser();
+  const { error } = await sb.from('businesses').insert({
+    user_id: user.id, name, icon: '🏢',
+    ownership_percent: pct, initial_investment: inv,
+    currency, start_date: start, is_active: true
+  });
+  if (error) { console.error(error); showToast('Error al guardar', 'error'); return; }
+
+  closeModal('add-business-modal');
+  showToast('Negocio guardado ✓', 'success');
+  document.getElementById('biz-name').value = '';
+  document.getElementById('biz-pct').value  = '';
+  document.getElementById('biz-inv').value  = '';
+  renderBusinessTab();
+}
+
 // ══ HELPERS ══════════════════════════════════════════════════
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
@@ -1888,6 +2031,21 @@ function openModal(id) {
     if (interestEl) interestEl.value = '';
     document.getElementById('acc-credit-fields').style.display  = 'none';
     document.getElementById('acc-savings-fields').style.display = 'none';
+  }
+  // Limpiar formulario de ingreso
+  if (id === 'add-income-modal') {
+    document.getElementById('inc-name').value = '';
+    document.getElementById('inc-amount').value = '';
+    document.getElementById('inc-type').value = 'salary';
+    document.getElementById('inc-frequency').value = 'monthly';
+    document.getElementById('inc-amount-group').style.display = 'grid';
+  }
+  // Limpiar formulario de negocio
+  if (id === 'add-business-modal') {
+    document.getElementById('biz-name').value  = '';
+    document.getElementById('biz-pct').value   = '';
+    document.getElementById('biz-inv').value   = '';
+    document.getElementById('biz-start').value = new Date().toISOString().split('T')[0];
   }
   // Limpiar formulario de meta
   if (id === 'add-goal-modal') {

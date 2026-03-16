@@ -2416,9 +2416,15 @@ async function confirmDeleteAccount() {
 // ══ HELPERS ══════════════════════════════════════════════════
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
+  // Cancelar cualquier timer anterior
+  if (t._hideTimer) clearTimeout(t._hideTimer);
   t.textContent = msg;
-  t.className = `toast ${type} show`;
-  setTimeout(() => t.classList.remove('show'), 3000);
+  t.className = 'toast ' + (type ? type + ' ' : '') + 'show';
+  t._hideTimer = setTimeout(() => {
+    t.classList.remove('show');
+    // Limpiar clases de color después de que termine la animación
+    setTimeout(() => { t.className = 'toast'; }, 400);
+  }, 3000);
 }
 
 // Modales de income source y business (básicos)

@@ -127,12 +127,15 @@
   <!-- ══ PRESUPUESTO ════════════════════════════════════════ -->
   <div id="screen-budget" class="screen">
     <div class="screen-header" style="padding-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <h2 class="screen-title">Presupuesto</h2>
-          <p class="screen-subtitle" id="budget-month-label"></p>
-        </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 class="screen-title">Presupuesto</h2>
         <button class="btn btn-primary btn-sm" onclick="openModal('add-budget-modal')">+ Categoría</button>
+      </div>
+      <!-- Navegador de mes -->
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:12px;padding:6px 8px;margin-bottom:12px;">
+        <button onclick="changeMonth('budget', -1)" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:2px 10px;border-radius:8px;line-height:1;">‹</button>
+        <span id="budget-month-label" style="font-size:14px;font-weight:600;color:var(--text1);">Cargando...</span>
+        <button onclick="changeMonth('budget', +1)" id="budget-next-btn" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:2px 10px;border-radius:8px;line-height:1;">›</button>
       </div>
       <!-- Total del mes -->
       <div style="margin-top:12px;background:var(--surface2);border-radius:var(--radius-sm);padding:14px;">
@@ -157,12 +160,15 @@
   <!-- ══ GASTOS / TRANSACCIONES ════════════════════════════ -->
   <div id="screen-gastos" class="screen">
     <div class="screen-header">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <h2 class="screen-title">Transacciones</h2>
-          <p class="screen-subtitle" id="tx-month-label"></p>
-        </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 class="screen-title">Transacciones</h2>
         <button class="btn btn-secondary btn-sm" onclick="openModal('import-pdf-modal')">📄 PDF</button>
+      </div>
+      <!-- Navegador de mes -->
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:12px;padding:6px 8px;">
+        <button onclick="changeMonth('gastos', -1)" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:2px 10px;border-radius:8px;line-height:1;">‹</button>
+        <span id="tx-month-label" style="font-size:14px;font-weight:600;color:var(--text1);">Cargando...</span>
+        <button onclick="changeMonth('gastos', +1)" id="tx-next-btn" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:2px 10px;border-radius:8px;line-height:1;">›</button>
       </div>
     </div>
     <div style="padding:14px 16px 0;" id="tx-list-container">
@@ -1026,8 +1032,11 @@ async function renderAlerts() {
 // ══ PRESUPUESTO ══════════════════════════════════════════════
 async function loadBudgetScreen() {
   const month = state.currentMonth, year = state.currentYear;
-  const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  document.getElementById('budget-month-label').textContent = `${monthNames[month-1]} ${year}`;
+  document.getElementById('budget-month-label').textContent = `${MONTH_NAMES[month-1]} ${year}`;
+  const _now2 = new Date();
+  const _isCurr2 = (year === _now2.getFullYear() && month === _now2.getMonth() + 1);
+  const _nextBtn2 = document.getElementById('budget-next-btn');
+  if (_nextBtn2) { _nextBtn2.style.opacity = _isCurr2 ? '0.3' : '1'; _nextBtn2.disabled = _isCurr2; }
 
   const budgets  = await DB.getBudgets(month, year);
   const spending = await DB.getSpendingByCategory(month, year);
@@ -1113,10 +1122,47 @@ function toggleBudgetCat(header) {
 }
 
 // ══ TRANSACCIONES ═════════════════════════════════════════════
+
+// ══ NAVEGACIÓN DE MES ════════════════════════════════════════
+
+const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                     'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function changeMonth(screen, delta) {
+  let month = state.currentMonth + delta;
+  let year  = state.currentYear;
+
+  if (month > 12) { month = 1;  year++; }
+  if (month < 1)  { month = 12; year--; }
+
+  state.currentMonth = month;
+  state.currentYear  = year;
+
+  // Deshabilitar flecha siguiente si ya estamos en el mes actual
+  const now = new Date();
+  const isCurrent = (year === now.getFullYear() && month === now.getMonth() + 1);
+  const isAfter   = (year > now.getFullYear()) ||
+                    (year === now.getFullYear() && month > now.getMonth() + 1);
+
+  const nextBtnTx  = document.getElementById('tx-next-btn');
+  const nextBtnBdg = document.getElementById('budget-next-btn');
+  if (nextBtnTx)  nextBtnTx.style.opacity  = (isCurrent || isAfter) ? '0.3' : '1';
+  if (nextBtnBdg) nextBtnBdg.style.opacity = (isCurrent || isAfter) ? '0.3' : '1';
+  if (nextBtnTx)  nextBtnTx.disabled  = isCurrent || isAfter;
+  if (nextBtnBdg) nextBtnBdg.disabled = isCurrent || isAfter;
+
+  if (screen === 'gastos') loadTransactions();
+  if (screen === 'budget') loadBudgetScreen();
+}
+
 async function loadTransactions() {
   const month = state.currentMonth, year = state.currentYear;
-  const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  document.getElementById('tx-month-label').textContent = `${monthNames[month-1]} ${year}`;
+  document.getElementById('tx-month-label').textContent = `${MONTH_NAMES[month-1]} ${year}`;
+  // Deshabilitar flecha siguiente si es el mes actual o futuro
+  const _now = new Date();
+  const _isCurr = (year === _now.getFullYear() && month === _now.getMonth() + 1);
+  const _nextBtn = document.getElementById('tx-next-btn');
+  if (_nextBtn) { _nextBtn.style.opacity = _isCurr ? '0.3' : '1'; _nextBtn.disabled = _isCurr; }
 
   const txs = await DB.getTransactions({ month, year });
   const container = document.getElementById('tx-list-container');

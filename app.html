@@ -122,6 +122,47 @@
         <div id="home-alerts"><p style="font-size:13px;color:var(--text3);text-align:center;">Sin alertas por ahora 🎉</p></div>
       </div>
     </div>
+
+    <!-- Vista en pareja (oculta por defecto) -->
+    <div style="padding:16px 16px 0;display:none;" id="home-couple-content">
+      <!-- Loading state -->
+      <div id="couple-loading" style="text-align:center;padding:40px 0;">
+        <div class="spinner" style="border-color:var(--accent-lt);border-top-color:var(--accent);width:32px;height:32px;border-width:3px;margin:0 auto 12px;"></div>
+        <p style="font-size:13px;color:var(--text3);">Cargando datos de tu pareja...</p>
+      </div>
+      <div id="couple-data" style="display:none;">
+        <!-- Patrimonio combinado -->
+        <div class="card" style="padding:20px;margin-bottom:14px;">
+          <p style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;letter-spacing:0.06em;">PATRIMONIO COMBINADO</p>
+          <span class="balance-amount" id="couple-patrimony">$0.00</span>
+          <p style="font-size:11px;color:var(--text3);margin-top:4px;margin-bottom:14px;" id="couple-patrimony-sub"></p>
+          <div style="height:1px;background:var(--border);margin-bottom:14px;"></div>
+          <!-- Desglose por persona -->
+          <div style="display:flex;gap:10px;" id="couple-person-breakdown"></div>
+        </div>
+        <!-- Flujo del mes combinado -->
+        <div class="card" style="padding:18px;margin-bottom:14px;">
+          <p style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:12px;letter-spacing:0.06em;">FLUJO DEL MES — COMBINADO</p>
+          <div style="display:flex;gap:12px;margin-bottom:16px;">
+            <div style="flex:1;background:var(--green-bg);border-radius:12px;padding:10px 12px;">
+              <p style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:3px;">INGRESOS</p>
+              <p style="font-size:15px;font-weight:700;color:var(--green);" id="couple-income">$0.00</p>
+            </div>
+            <div style="flex:1;background:var(--red-bg);border-radius:12px;padding:10px 12px;">
+              <p style="font-size:10px;color:var(--red);font-weight:600;margin-bottom:3px;">GASTOS</p>
+              <p style="font-size:15px;font-weight:700;color:var(--red);" id="couple-expenses">$0.00</p>
+            </div>
+            <div style="flex:1;background:var(--accent-bg);border-radius:12px;padding:10px 12px;">
+              <p style="font-size:10px;color:var(--accent);font-weight:600;margin-bottom:3px;">BALANCE</p>
+              <p style="font-size:15px;font-weight:700;color:var(--accent);" id="couple-balance">$0.00</p>
+            </div>
+          </div>
+          <!-- Barra comparativa -->
+          <p style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px;">GASTOS POR PERSONA ESTE MES</p>
+          <div id="couple-spending-bars"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ══ PRESUPUESTO ════════════════════════════════════════ -->
@@ -191,6 +232,7 @@
         <button class="tab-btn active" onclick="setAccountsTab('accounts', this)">Cuentas</button>
         <button class="tab-btn"        onclick="setAccountsTab('income', this)">Ingresos</button>
         <button class="tab-btn"        onclick="setAccountsTab('business', this)">Negocio</button>
+        <button class="tab-btn"        onclick="setAccountsTab('loans', this)">Préstamos</button>
       </div>
     </div>
 
@@ -203,6 +245,10 @@
     </div>
 
     <div id="tab-business" style="display:none;padding:14px 16px;">
+      <p style="font-size:13px;color:var(--text3);text-align:center;padding:24px 0;">Cargando...</p>
+    </div>
+
+    <div id="tab-loans" style="display:none;padding:14px 16px;">
       <p style="font-size:13px;color:var(--text3);text-align:center;padding:24px 0;">Cargando...</p>
     </div>
   </div>
@@ -296,9 +342,12 @@
       <div class="list-row" style="cursor:default;">
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="icon-box" style="background:var(--amber-bg);">🔔</div>
-          <div><p style="font-size:15px;font-weight:500;color:var(--text1);">Recordatorios de crédito</p><p style="font-size:12px;color:var(--text3);">Cada 6 meses</p></div>
+          <div>
+            <p style="font-size:15px;font-weight:500;color:var(--text1);">Recordatorios de crédito</p>
+            <p style="font-size:12px;color:var(--text3);" id="credit-reminder-label">Cada 6 meses</p>
+          </div>
         </div>
-        <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        <div class="toggle on" id="credit-reminder-toggle" onclick="toggleCreditReminder(this)"></div>
       </div>
       <div class="list-row" onclick="Auth.signOut()" style="border-bottom:none;">
         <div style="display:flex;align-items:center;gap:12px;">
@@ -763,6 +812,183 @@
   </div>
 </div>
 
+<!-- Modal: editar perfil -->
+<div class="modal-overlay" id="edit-profile-modal" onclick="closeModalClick(event,'edit-profile-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:16px;">Editar perfil</h3>
+    <div style="display:flex;justify-content:center;margin-bottom:20px;">
+      <div id="profile-avatar-preview" style="width:70px;height:70px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:24px;">--</div>
+    </div>
+    <div class="form-group">
+      <label class="input-label">Nombre</label>
+      <input id="edit-name" class="input" placeholder="Tu nombre">
+    </div>
+    <div class="form-group">
+      <label class="input-label">Email</label>
+      <input id="edit-email" class="input" type="email" readonly style="opacity:0.5;cursor:not-allowed;" placeholder="tu@email.com">
+      <p style="font-size:11px;color:var(--text3);margin-top:4px;">El email no se puede cambiar.</p>
+    </div>
+    <div class="form-group">
+      <label class="input-label">Nueva contraseña (opcional)</label>
+      <input id="edit-password" class="input" type="password" placeholder="Dejá en blanco para no cambiar">
+    </div>
+    <div class="form-group">
+      <label class="input-label">Confirmar contraseña</label>
+      <input id="edit-password-confirm" class="input" type="password" placeholder="Repetí la nueva contraseña">
+    </div>
+    <p id="edit-profile-error" style="color:var(--red);font-size:13px;text-align:center;margin-bottom:10px;display:none;"></p>
+    <button class="btn btn-primary" id="btn-save-profile" onclick="saveProfile()">Guardar cambios</button>
+  </div>
+</div>
+
+<!-- Modal: detalle y edición de transacción -->
+<div class="modal-overlay" id="tx-detail-modal" onclick="closeModalClick(event,'tx-detail-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:16px;">Editar transacción</h3>
+    <input type="hidden" id="tx-detail-id">
+    <div class="form-group">
+      <label class="input-label">Descripción</label>
+      <input id="tx-detail-desc" class="input" placeholder="Descripción">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Monto</label>
+        <input id="tx-detail-amount" class="input" type="number" step="0.01" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="input-label">Tipo</label>
+        <select id="tx-detail-type" class="input">
+          <option value="expense">Gasto</option>
+          <option value="income">Ingreso</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="input-label">Categoría</label>
+      <select id="tx-detail-category" class="input"></select>
+    </div>
+    <div class="form-group">
+      <label class="input-label">Fecha</label>
+      <input id="tx-detail-date" class="input" type="date">
+    </div>
+    <div class="form-group">
+      <label class="input-label">Notas</label>
+      <input id="tx-detail-notes" class="input" placeholder="Opcional">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button class="btn btn-primary" onclick="saveTxDetail()" style="flex:1;">Guardar</button>
+      <button class="btn btn-danger" onclick="deleteTxDetail()" style="flex:0;padding:12px 18px;background:var(--red-bg);color:var(--red);border-radius:var(--radius-sm);">🗑</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: editar presupuesto -->
+<div class="modal-overlay" id="edit-budget-modal" onclick="closeModalClick(event,'edit-budget-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:4px;">Editar límite</h3>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:16px;" id="edit-budget-cat-name"></p>
+    <input type="hidden" id="edit-budget-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Nuevo límite</label>
+        <input id="edit-budget-amount" class="input" type="number" placeholder="500">
+      </div>
+      <div class="form-group">
+        <label class="input-label">Divisa</label>
+        <select id="edit-budget-currency" class="input">
+          <option value="USD">USD</option><option value="DOP">DOP</option>
+          <option value="EUR">EUR</option><option value="GBP">GBP</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveEditBudget()">Guardar</button>
+  </div>
+</div>
+
+<!-- Modal: agregar préstamo -->
+<div class="modal-overlay" id="add-loan-modal" onclick="closeModalClick(event,'add-loan-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:16px;">Nuevo préstamo</h3>
+    <div class="form-group">
+      <label class="input-label">Nombre / Institución</label>
+      <input id="loan-name" class="input" placeholder="Ej: Banco BHD, Préstamo personal">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Monto original</label>
+        <input id="loan-amount" class="input" type="number" placeholder="10000">
+      </div>
+      <div class="form-group">
+        <label class="input-label">Saldo pendiente</label>
+        <input id="loan-balance" class="input" type="number" placeholder="8000">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Divisa</label>
+        <select id="loan-currency" class="input">
+          <option value="USD">USD</option><option value="DOP">DOP</option>
+          <option value="EUR">EUR</option><option value="GBP">GBP</option>
+          <option value="MXN">MXN</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="input-label">Tasa anual (%)</label>
+        <input id="loan-rate" class="input" type="number" placeholder="12.5" step="0.1">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Cuota mensual</label>
+        <input id="loan-payment" class="input" type="number" placeholder="500">
+      </div>
+      <div class="form-group">
+        <label class="input-label">Fecha inicio</label>
+        <input id="loan-start" class="input" type="date">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveLoan()">Guardar préstamo</button>
+  </div>
+</div>
+
+<!-- Modal: dinero prestado -->
+<div class="modal-overlay" id="add-lent-modal" onclick="closeModalClick(event,'add-lent-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:16px;">Dinero prestado</h3>
+    <div class="form-group">
+      <label class="input-label">¿A quién le prestaste?</label>
+      <input id="lent-person" class="input" placeholder="Nombre de la persona">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Monto</label>
+        <input id="lent-amount" class="input" type="number" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="input-label">Divisa</label>
+        <select id="lent-currency" class="input">
+          <option value="USD">USD</option><option value="DOP">DOP</option>
+          <option value="EUR">EUR</option><option value="GBP">GBP</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="input-label">Fecha</label>
+      <input id="lent-date" class="input" type="date">
+    </div>
+    <div class="form-group">
+      <label class="input-label">Nota (opcional)</label>
+      <input id="lent-note" class="input" placeholder="Ej: Para la mudanza">
+    </div>
+    <button class="btn btn-primary" onclick="saveLent()">Guardar</button>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -851,8 +1077,13 @@ function setDarkPref(pref) {
   localStorage.setItem('darkPref', pref);
   applyDarkMode(pref);
   const labels = { auto: 'Automático', on: 'Siempre activado', off: 'Siempre desactivado' };
-  document.getElementById('dark-mode-label').textContent = labels[pref];
-  DB.updateProfile({ dark_mode: pref });
+  const labelEl = document.getElementById('dark-mode-label');
+  if (labelEl) labelEl.textContent = labels[pref];
+  // Guardar en Supabase para sincronizar entre dispositivos
+  if (state.profile) {
+    state.profile.dark_mode = pref;
+    DB.updateProfile({ dark_mode: pref });
+  }
 }
 
 function toggleDark() {
@@ -885,7 +1116,34 @@ function updateProfileUI() {
 }
 
 function loadSettings() {
-  applyStoredDarkMode();
+  const p = state.profile;
+  if (!p) { applyStoredDarkMode(); return; }
+
+  // ── Problema 5: sincronizar dark mode desde Supabase ──────
+  // Si hay preferencia guardada en DB, usarla (y sobreescribir localStorage)
+  const dbPref = p.dark_mode || 'auto';
+  const localPref = localStorage.getItem('darkPref');
+  // La DB tiene prioridad sobre localStorage para sincronizar entre dispositivos
+  const pref = dbPref !== 'auto' ? dbPref : (localPref || 'auto');
+  state.darkPref = pref;
+  localStorage.setItem('darkPref', pref);
+  applyDarkMode(pref);
+  const labels = { auto: 'Automático', on: 'Siempre activado', off: 'Siempre desactivado' };
+  const labelEl = document.getElementById('dark-mode-label');
+  if (labelEl) labelEl.textContent = labels[pref] || 'Automático';
+  const radios = document.querySelectorAll('input[name="darkpref"]');
+  radios.forEach(r => { if (r.value === pref) r.checked = true; });
+
+  // ── Problema 4: toggle de recordatorios desde el perfil ───
+  const reminderEnabled = p.credit_reminders_enabled !== false; // default true
+  const reminderToggle  = document.getElementById('credit-reminder-toggle');
+  if (reminderToggle) {
+    reminderToggle.classList.toggle('on', reminderEnabled);
+  }
+  const reminderLabel = document.getElementById('credit-reminder-label');
+  if (reminderLabel) {
+    reminderLabel.textContent = reminderEnabled ? 'Cada 6 meses' : 'Desactivados';
+  }
 }
 
 // ══ INICIO ════════════════════════════════════════════════════
@@ -990,6 +1248,8 @@ async function renderAlerts() {
   const alerts = [];
   const accounts = state.accounts;
   const today = new Date();
+  // Respetar preferencia global de recordatorios
+  const remindersEnabled = state.profile?.credit_reminders_enabled !== false;
 
   accounts.forEach(acc => {
     if (acc.type === 'credit' && acc.credit_limit > 0) {
@@ -1000,8 +1260,8 @@ async function renderAlerts() {
           title: `${acc.name} al ${util.toFixed(0)}% de utilización`,
           sub: 'Considerá pagar antes del corte' });
       }
-      // Recordatorio aumento de línea
-      if (acc.credit_reminder_enabled && acc.last_limit_increase_date) {
+      // Recordatorio aumento de línea — solo si están habilitados globalmente
+      if (remindersEnabled && acc.credit_reminder_enabled && acc.last_limit_increase_date) {
         const lastIncrease = new Date(acc.last_limit_increase_date);
         const monthsDiff = (today - lastIncrease) / (1000 * 60 * 60 * 24 * 30);
         if (monthsDiff >= acc.credit_reminder_months) {
@@ -1088,9 +1348,13 @@ async function loadBudgetScreen() {
             <span style="font-size:15px;">${sc.icon}</span>
             <span style="font-size:13px;color:var(--text1);">${sc.name}</span>
           </div>
-          <div style="text-align:right;">
-            <p style="font-size:12px;font-weight:600;color:${scPct>=100?'var(--red)':scPct>=80?'var(--amber)':'var(--text1)'};">${Rates.format(scSpent)} / ${Rates.format(scBudget.amount)}</p>
-            <div class="progress-bar" style="width:80px;margin-top:3px;"><div class="progress-fill ${scColor}" style="width:${scPct}%"></div></div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="text-align:right;">
+              <p style="font-size:12px;font-weight:600;color:${scPct>=100?'var(--red)':scPct>=80?'var(--amber)':'var(--text1)'};">${Rates.format(scSpent)} / ${Rates.format(scBudget.amount)}</p>
+              <div class="progress-bar" style="width:70px;margin-top:3px;"><div class="progress-fill ${scColor}" style="width:${scPct}%"></div></div>
+            </div>
+            <button onclick="openEditBudget('${scBudget.id}','${sc.name}',${scBudget.amount},'${scBudget.currency}')" style="background:var(--surface2);border:none;border-radius:8px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text2);">✏</button>
+            <button onclick="deleteBudget('${scBudget.id}')" style="background:var(--red-bg);border:none;border-radius:8px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--red);">✕</button>
           </div>
         </div>`;
     }).join('');
@@ -1101,9 +1365,13 @@ async function loadBudgetScreen() {
           <div class="cat-expand">${subcatBudgets.length > 0 ? '›' : ''}</div>
           <span style="font-size:20px;">${cat.icon}</span>
           <div style="flex:1;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
               <p style="font-size:14px;font-weight:600;color:var(--text1);">${cat.name}</p>
-              <span style="font-size:12px;color:${pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--text3)'};">${warn}${Rates.format(spent)} / ${Rates.format(catBudget.amount)}</span>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:12px;color:${pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--text3)'};">${warn}${Rates.format(spent)} / ${Rates.format(catBudget.amount)}</span>
+                <button onclick="event.stopPropagation();openEditBudget('${catBudget.id}','${cat.name}',${catBudget.amount},'${catBudget.currency}')" style="background:var(--surface2);border:none;border-radius:8px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text2);">✏</button>
+                <button onclick="event.stopPropagation();deleteBudget('${catBudget.id}')" style="background:var(--red-bg);border:none;border-radius:8px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--red);">✕</button>
+              </div>
             </div>
             <div class="progress-bar"><div class="progress-fill ${color}" style="width:${pct}%"></div></div>
           </div>
@@ -1222,12 +1490,13 @@ async function loadAccountsTab(tab) {
   if (tab === 'accounts') renderAccountsList();
   if (tab === 'income')   renderIncomeTab();
   if (tab === 'business') renderBusinessTab();
+  if (tab === 'loans')    renderLoansTab();
 }
 
 function setAccountsTab(tab, el) {
   document.querySelectorAll('#screen-cards .tab-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
-  ['tab-accounts','tab-income','tab-business'].forEach(id => {
+  ['tab-accounts','tab-income','tab-business','tab-loans'].forEach(id => {
     document.getElementById(id).style.display = 'none';
   });
   document.getElementById('tab-' + tab).style.display = 'block';
@@ -1942,7 +2211,130 @@ function fileToBase64(file) {
 function setHomeTab(tab, el) {
   document.querySelectorAll('#home-tabs .tab-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
-  // En el futuro: mostrar datos de pareja
+
+  const personalContent = document.getElementById('home-content');
+  const coupleContent   = document.getElementById('home-couple-content');
+
+  if (tab === 'personal') {
+    personalContent.style.display = 'block';
+    coupleContent.style.display   = 'none';
+  } else {
+    personalContent.style.display = 'none';
+    coupleContent.style.display   = 'block';
+    loadCoupleView();
+  }
+}
+
+async function loadCoupleView() {
+  const now   = new Date();
+  const month = now.getMonth() + 1;
+  const year  = now.getFullYear();
+
+  document.getElementById('couple-loading').style.display = 'block';
+  document.getElementById('couple-data').style.display    = 'none';
+
+  if (!state.couple) {
+    document.getElementById('couple-loading').innerHTML =
+      '<p style="font-size:14px;color:var(--text3);padding:20px 0;">No estás vinculado con tu pareja aún.<br><br><button class="btn btn-primary" style="width:auto;padding:10px 20px;" onclick="openCoupleModal()">Vincular ahora</button></p>';
+    return;
+  }
+
+  const { data: { user } } = await sb.auth.getUser();
+  const partnerId = state.couple.user1_id === user.id
+    ? state.couple.user2_id : state.couple.user1_id;
+  const partnerName = (state.couple.user1_id === user.id
+    ? state.couple.user2?.name : state.couple.user1?.name) || 'Tu pareja';
+  const myName = state.profile?.name?.split(' ')[0] || 'Tú';
+
+  // Cuentas de ambos
+  const myAccounts = state.accounts;
+  const { data: partnerAccounts } = await sb.from('accounts')
+    .select('*').eq('user_id', partnerId).eq('is_archived', false);
+
+  // Patrimonio individual en USD
+  let myPatrimony = 0;
+  for (const acc of myAccounts) {
+    const usd = await Rates.toUSD(acc.balance, acc.currency);
+    myPatrimony += acc.type === 'credit' ? -usd : usd;
+  }
+  let partnerPatrimony = 0;
+  for (const acc of (partnerAccounts || [])) {
+    const usd = await Rates.toUSD(acc.balance, acc.currency);
+    partnerPatrimony += acc.type === 'credit' ? -usd : usd;
+  }
+  const totalPatrimony = myPatrimony + partnerPatrimony;
+
+  document.getElementById('couple-patrimony').textContent = Rates.format(totalPatrimony);
+  document.getElementById('couple-patrimony-sub').textContent =
+    `${myAccounts.length + (partnerAccounts?.length || 0)} cuentas en total · en USD`;
+
+  // Desglose por persona
+  const myColor      = '#6366F1';
+  const partnerColor = '#EC4899';
+  document.getElementById('couple-person-breakdown').innerHTML = `
+    <div style="flex:1;background:var(--accent-bg);border-radius:12px;padding:12px;text-align:center;">
+      <div style="width:32px;height:32px;border-radius:50%;background:${myColor};color:white;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">${myName[0].toUpperCase()}</div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:2px;">${myName}</p>
+      <p style="font-size:15px;font-weight:700;color:${myColor};">${Rates.format(myPatrimony)}</p>
+    </div>
+    <div style="display:flex;align-items:center;color:var(--text3);font-size:18px;padding:0 4px;">+</div>
+    <div style="flex:1;background:#FDF2F8;border-radius:12px;padding:12px;text-align:center;">
+      <div style="width:32px;height:32px;border-radius:50%;background:${partnerColor};color:white;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">${partnerName[0].toUpperCase()}</div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:2px;">${partnerName}</p>
+      <p style="font-size:15px;font-weight:700;color:${partnerColor};">${Rates.format(partnerPatrimony)}</p>
+    </div>`;
+
+  // Flujo del mes — ambos
+  const myTotals      = await DB.getMonthlyTotals(month, year);
+
+  // Totales del partner
+  const lastDay = new Date(year, month, 0).getDate();
+  const from = `${year}-${String(month).padStart(2,'0')}-01`;
+  const to   = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  const { data: partnerTxs } = await sb.from('transactions')
+    .select('type, amount_usd')
+    .eq('user_id', partnerId)
+    .gte('date', from).lte('date', to);
+
+  let partnerIncome = 0, partnerExpenses = 0;
+  (partnerTxs || []).forEach(t => {
+    const v = parseFloat(t.amount_usd) || 0;
+    if (t.type === 'income' || t.type === 'interest') partnerIncome += v;
+    else if (t.type === 'expense') partnerExpenses += v;
+  });
+
+  const totalIncome   = myTotals.income   + partnerIncome;
+  const totalExpenses = myTotals.expenses + partnerExpenses;
+  const totalBalance  = totalIncome - totalExpenses;
+
+  document.getElementById('couple-income').textContent   = Rates.format(totalIncome);
+  document.getElementById('couple-expenses').textContent = Rates.format(totalExpenses);
+  document.getElementById('couple-balance').textContent  = Rates.format(totalBalance);
+  document.getElementById('couple-balance').style.color  = totalBalance >= 0 ? 'var(--accent)' : 'var(--red)';
+
+  // Barras comparativas de gastos
+  const maxExp = Math.max(myTotals.expenses, partnerExpenses, 1);
+  const myPct      = ((myTotals.expenses / maxExp) * 100).toFixed(0);
+  const partnerPct = ((partnerExpenses    / maxExp) * 100).toFixed(0);
+
+  document.getElementById('couple-spending-bars').innerHTML = `
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:12px;font-weight:600;color:${myColor};">${myName}</span>
+        <span style="font-size:12px;color:var(--text2);">${Rates.format(myTotals.expenses)}</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${myPct}%;background:${myColor};"></div></div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:12px;font-weight:600;color:${partnerColor};">${partnerName}</span>
+        <span style="font-size:12px;color:var(--text2);">${Rates.format(partnerExpenses)}</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${partnerPct}%;background:${partnerColor};"></div></div>
+    </div>`;
+
+  document.getElementById('couple-loading').style.display = 'none';
+  document.getElementById('couple-data').style.display    = 'block';
 }
 
 // ══ DETALLES DE TRANSACCIÓN ════════════════════════════════
@@ -2415,6 +2807,352 @@ async function confirmDeleteAccount() {
   }
 }
 
+
+// ══ EDITAR PERFIL ═════════════════════════════════════════════
+
+async function saveProfile() {
+  const name     = document.getElementById('edit-name').value.trim();
+  const password = document.getElementById('edit-password').value;
+  const confirm  = document.getElementById('edit-password-confirm').value;
+  const errEl    = document.getElementById('edit-profile-error');
+  const btn      = document.getElementById('btn-save-profile');
+  errEl.style.display = 'none';
+
+  if (!name) { errEl.textContent = 'El nombre no puede estar vacío'; errEl.style.display = 'block'; return; }
+  if (password && password !== confirm) {
+    errEl.textContent = 'Las contraseñas no coinciden';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (password && password.length < 6) {
+    errEl.textContent = 'La contraseña debe tener al menos 6 caracteres';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    // Actualizar nombre en profiles
+    const { error: profileError } = await sb.from('profiles')
+      .update({ name })
+      .eq('id', state.profile.id);
+
+    if (profileError) throw new Error(profileError.message);
+
+    // Actualizar contraseña si se ingresó
+    if (password) {
+      const { error: passError } = await sb.auth.updateUser({ password });
+      if (passError) throw new Error(passError.message);
+    }
+
+    state.profile.name = name;
+    updateProfileUI();
+    document.getElementById('edit-profile-modal').classList.remove('open');
+    showToast('Perfil actualizado ✓', 'success');
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Guardar cambios';
+  }
+}
+
+// ══ DETALLE / EDICIÓN DE TRANSACCIÓN ═════════════════════════
+
+// Guarda la transacción activa para poder eliminarla
+let _editingTxId = null;
+let _editingTxAccountId = null;
+let _editingTxOldAmount = 0;
+let _editingTxOldType = '';
+
+async function openTxDetail(id) {
+  // Buscar la transacción en Supabase
+  const { data: tx, error } = await sb.from('transactions')
+    .select('*, account:account_id(name,currency), category:category_id(name)')
+    .eq('id', id).single();
+
+  if (error || !tx) { showToast('Error al cargar la transacción', 'error'); return; }
+
+  _editingTxId        = tx.id;
+  _editingTxAccountId = tx.account_id;
+  _editingTxOldAmount = parseFloat(tx.amount_native);
+  _editingTxOldType   = tx.type;
+
+  // Abrir modal (también rellena el select de categorías)
+  openModal('tx-detail-modal');
+
+  // Rellenar campos
+  document.getElementById('tx-detail-id').value       = tx.id;
+  document.getElementById('tx-detail-desc').value     = tx.description || '';
+  document.getElementById('tx-detail-amount').value   = tx.amount_native;
+  document.getElementById('tx-detail-type').value     = tx.type;
+  document.getElementById('tx-detail-date').value     = tx.date;
+  document.getElementById('tx-detail-notes').value    = tx.notes || '';
+  document.getElementById('tx-detail-category').value = tx.category_id || '';
+}
+
+async function saveTxDetail() {
+  const id       = _editingTxId;
+  const desc     = document.getElementById('tx-detail-desc').value.trim();
+  const amount   = parseFloat(document.getElementById('tx-detail-amount').value);
+  const type     = document.getElementById('tx-detail-type').value;
+  const date     = document.getElementById('tx-detail-date').value;
+  const notes    = document.getElementById('tx-detail-notes').value.trim();
+  const catId    = document.getElementById('tx-detail-category').value || null;
+
+  if (!desc || !amount || !date) { showToast('Completá todos los campos', 'error'); return; }
+
+  // Obtener divisa de la cuenta
+  const acc = state.accounts.find(a => a.id === _editingTxAccountId);
+  const currency = acc?.currency || 'USD';
+  const amountUsd = await Rates.toUSD(amount, currency);
+
+  // Revertir el saldo anterior y aplicar el nuevo
+  const oldDelta = _editingTxOldType === 'income' ? -_editingTxOldAmount : _editingTxOldAmount;
+  const newDelta = type === 'income' ? amount : -amount;
+  const { data: accData } = await sb.from('accounts').select('balance').eq('id', _editingTxAccountId).single();
+  if (accData) {
+    const newBalance = accData.balance + oldDelta + newDelta;
+    await sb.from('accounts').update({ balance: newBalance }).eq('id', _editingTxAccountId);
+  }
+
+  const { error } = await sb.from('transactions').update({
+    description:  desc,
+    amount_native: amount,
+    amount_usd:   amountUsd,
+    type,
+    date,
+    notes,
+    category_id:  catId
+  }).eq('id', id);
+
+  if (error) { showToast('Error al guardar', 'error'); return; }
+
+  document.getElementById('tx-detail-modal').classList.remove('open');
+  showToast('Transacción actualizada ✓', 'success');
+  state.accounts = await DB.getAccounts();
+  populateAccountSelects();
+  loadTransactions();
+  loadHomeScreen();
+}
+
+async function deleteTxDetail() {
+  if (!_editingTxId) return;
+  if (!confirm('¿Eliminar esta transacción?')) return;
+
+  // Revertir el saldo
+  const acc = state.accounts.find(a => a.id === _editingTxAccountId);
+  if (acc) {
+    const delta = _editingTxOldType === 'income' ? -_editingTxOldAmount : _editingTxOldAmount;
+    await sb.from('accounts').update({ balance: acc.balance + delta }).eq('id', _editingTxAccountId);
+  }
+
+  const { error } = await sb.from('transactions').delete().eq('id', _editingTxId);
+  if (error) { showToast('Error al eliminar', 'error'); return; }
+
+  document.getElementById('tx-detail-modal').classList.remove('open');
+  showToast('Transacción eliminada', '');
+  state.accounts = await DB.getAccounts();
+  populateAccountSelects();
+  loadTransactions();
+  loadHomeScreen();
+}
+
+
+// ══ TOGGLE RECORDATORIOS DE CRÉDITO ═════════════════════════
+
+async function toggleCreditReminder(el) {
+  el.classList.toggle('on');
+  const enabled = el.classList.contains('on');
+  const labelEl = document.getElementById('credit-reminder-label');
+  if (labelEl) labelEl.textContent = enabled ? 'Cada 6 meses' : 'Desactivados';
+
+  // Guardar en perfil
+  if (state.profile) {
+    state.profile.credit_reminders_enabled = enabled;
+    await DB.updateProfile({ credit_reminders_enabled: enabled });
+  }
+
+  // Si se desactiva, ocultar alertas de crédito en el home
+  if (!enabled) {
+    const alertCard = document.getElementById('home-alerts-card');
+    const alertEl   = document.getElementById('home-alerts');
+    if (alertEl) alertEl.innerHTML = '<p style="font-size:13px;color:var(--text3);text-align:center;">Sin alertas por ahora 🎉</p>';
+    if (alertCard) alertCard.style.display = 'none';
+  } else {
+    renderAlerts();
+  }
+  showToast(enabled ? 'Recordatorios activados ✓' : 'Recordatorios desactivados', '');
+}
+
+
+// ══ PRÉSTAMOS Y DINERO PRESTADO ══════════════════════════════
+
+async function renderLoansTab() {
+  const el = document.getElementById('tab-loans');
+  const [loans, lentList] = await Promise.all([DB.getLoans(), DB.getMoneyLent()]);
+
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <p style="font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;">Mis préstamos</p>
+      <button class="btn btn-primary btn-sm" onclick="openModal('add-loan-modal')">+ Agregar</button>
+    </div>`;
+
+  if (loans.length === 0) {
+    html += `<div class="empty-state" style="padding:24px 0;"><span class="empty-icon">🏦</span><p class="empty-title">Sin préstamos</p><p class="empty-desc">Registrá los préstamos que debés para hacer seguimiento</p></div>`;
+  } else {
+    for (const loan of loans) {
+      const original = parseFloat(loan.original_amount || loan.amount);
+      const balance  = parseFloat(loan.balance || loan.remaining_balance || 0);
+      const paid     = original - balance;
+      const pct      = original > 0 ? Math.min((paid / original) * 100, 100) : 0;
+      const balUsd   = await Rates.toUSD(balance, loan.currency);
+      html += `
+        <div class="card" style="padding:16px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+            <div>
+              <p style="font-size:15px;font-weight:600;color:var(--text1);">${loan.name}</p>
+              <p style="font-size:11px;color:var(--text3);">${loan.currency}${loan.interest_rate ? ` · ${loan.interest_rate}% anual` : ''}${loan.monthly_payment ? ` · cuota ${Rates.format(loan.monthly_payment, loan.currency)}/mes` : ''}</p>
+            </div>
+            <button onclick="deleteLoan('${loan.id}')" style="background:var(--red-bg);color:var(--red);border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:11px;">🗑</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:12px;color:var(--text2);">Pendiente: <strong style="color:var(--red);">${Rates.format(balance, loan.currency)}</strong></span>
+            <span style="font-size:12px;color:var(--text3);">de ${Rates.format(original, loan.currency)}</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill fill-accent" style="width:${pct}%;"></div></div>
+          <p style="font-size:11px;color:var(--text3);margin-top:4px;">${pct.toFixed(0)}% pagado · ${loan.currency !== 'USD' ? `≈ ${Rates.format(balUsd)} pendientes` : ''}</p>
+        </div>`;
+    }
+  }
+
+  html += `
+    <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <p style="font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;">Dinero prestado</p>
+      <button class="btn btn-primary btn-sm" onclick="openModal('add-lent-modal')">+ Agregar</button>
+    </div>`;
+
+  if (lentList.length === 0) {
+    html += `<div class="empty-state" style="padding:24px 0;"><span class="empty-icon">🤝</span><p class="empty-title">Sin registros</p><p class="empty-desc">Registrá el dinero que le prestaste a otros</p></div>`;
+  } else {
+    const statusColors = { pending:'var(--amber)', partial:'var(--blue)', paid:'var(--green)' };
+    const statusLabels = { pending:'Pendiente', partial:'Parcial', paid:'Saldado' };
+    html += `<div class="card" style="overflow:hidden;">`;
+    html += lentList.map(item => `
+      <div class="list-row">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="icon-box" style="background:var(--surface2);">🤝</div>
+          <div>
+            <p style="font-size:14px;font-weight:500;color:var(--text1);">${item.person_name || item.borrower_name}</p>
+            <p style="font-size:11px;color:var(--text3);">${new Date((item.date_lent || item.date)+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</p>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="text-align:right;">
+            <p style="font-size:14px;font-weight:600;color:var(--text1);">${Rates.format(item.amount, item.currency)}</p>
+            <span style="font-size:10px;font-weight:600;color:${statusColors[item.status]||'var(--text3)'};">${statusLabels[item.status]||item.status}</span>
+          </div>
+          <button onclick="deleteLent('${item.id}')" style="background:var(--red-bg);color:var(--red);border:none;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px;">🗑</button>
+        </div>
+      </div>`).join('');
+    html += `</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+async function saveLoan() {
+  const name    = document.getElementById('loan-name').value.trim();
+  const amount  = parseFloat(document.getElementById('loan-amount').value) || 0;
+  const balance = parseFloat(document.getElementById('loan-balance').value) || 0;
+  const currency= document.getElementById('loan-currency').value;
+  const rate    = parseFloat(document.getElementById('loan-rate').value) || 0;
+  const payment = parseFloat(document.getElementById('loan-payment').value) || 0;
+  const start   = document.getElementById('loan-start').value;
+  if (!name || !amount) { showToast('Ingresá nombre y monto', 'error'); return; }
+
+  const { error } = await DB.createLoan({
+    name, original_amount: amount, balance, currency,
+    interest_rate: rate, monthly_payment: payment,
+    start_date: start || new Date().toISOString().split('T')[0], is_active: true
+  });
+  if (error) { console.error(error); showToast('Error al guardar', 'error'); return; }
+  closeModal('add-loan-modal');
+  showToast('Préstamo registrado ✓', 'success');
+  renderLoansTab();
+}
+
+async function deleteLoan(id) {
+  if (!confirm('¿Eliminar este préstamo?')) return;
+  await sb.from('loans').update({ is_active: false }).eq('id', id);
+  showToast('Préstamo eliminado', '');
+  renderLoansTab();
+}
+
+async function saveLent() {
+  const person  = document.getElementById('lent-person').value.trim();
+  const amount  = parseFloat(document.getElementById('lent-amount').value) || 0;
+  const currency= document.getElementById('lent-currency').value;
+  const date    = document.getElementById('lent-date').value;
+  const note    = document.getElementById('lent-note').value.trim();
+  if (!person || !amount) { showToast('Ingresá el nombre y el monto', 'error'); return; }
+
+  const { error } = await DB.createMoneyLent({
+    person_name: person, amount, currency,
+    date_lent: date || new Date().toISOString().split('T')[0],
+    note, status: 'pending'
+  });
+  if (error) { console.error(error); showToast('Error al guardar', 'error'); return; }
+  closeModal('add-lent-modal');
+  showToast('Registrado ✓', 'success');
+  renderLoansTab();
+}
+
+async function deleteLent(id) {
+  if (!confirm('¿Eliminar este registro?')) return;
+  await sb.from('money_lent').delete().eq('id', id);
+  showToast('Eliminado', '');
+  renderLoansTab();
+}
+
+// ══ EDITAR / ELIMINAR PRESUPUESTO ════════════════════════════
+
+let _editBudgetId = null;
+
+function openEditBudget(budgetId, catName, amount, currency) {
+  _editBudgetId = budgetId;
+  document.getElementById('edit-budget-id').value         = budgetId;
+  document.getElementById('edit-budget-cat-name').textContent = catName;
+  document.getElementById('edit-budget-amount').value     = amount;
+  document.getElementById('edit-budget-currency').value   = currency || 'USD';
+  openModal('edit-budget-modal');
+}
+
+async function saveEditBudget() {
+  const id       = _editBudgetId;
+  const amount   = parseFloat(document.getElementById('edit-budget-amount').value);
+  const currency = document.getElementById('edit-budget-currency').value;
+  if (!amount) { showToast('Ingresá un monto válido', 'error'); return; }
+
+  const { error } = await sb.from('budgets').update({ amount, currency }).eq('id', id);
+  if (error) { showToast('Error al guardar', 'error'); return; }
+  closeModal('edit-budget-modal');
+  showToast('Límite actualizado ✓', 'success');
+  loadBudgetScreen();
+}
+
+async function deleteBudget(budgetId) {
+  if (!confirm('¿Eliminar este presupuesto?')) return;
+  const { error } = await sb.from('budgets').delete().eq('id', budgetId);
+  if (error) { showToast('Error al eliminar', 'error'); return; }
+  showToast('Presupuesto eliminado', '');
+  loadBudgetScreen();
+}
+
 // ══ HELPERS ══════════════════════════════════════════════════
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
@@ -2459,6 +3197,34 @@ function openModal(id) {
     document.getElementById('acc-credit-fields').style.display  = 'none';
     document.getElementById('acc-savings-fields').style.display = 'none';
   }
+  // Rellenar modal de editar perfil con datos actuales
+  if (id === 'edit-profile-modal') {
+    const p = state.profile;
+    if (p) {
+      document.getElementById('edit-name').value  = p.name  || '';
+      document.getElementById('edit-email').value = p.email || '';
+      const initials = (p.name || '--').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+      document.getElementById('profile-avatar-preview').textContent = initials;
+    }
+    document.getElementById('edit-password').value         = '';
+    document.getElementById('edit-password-confirm').value = '';
+    document.getElementById('edit-profile-error').style.display = 'none';
+  }
+  // Rellenar modal de tx detail con categorías
+  if (id === 'tx-detail-modal') {
+    const sel = document.getElementById('tx-detail-category');
+    if (sel) {
+      const roots = state.categories.filter(c => !c.parent_id);
+      sel.innerHTML = '<option value="">Sin categoría</option>' +
+        roots.flatMap(r => {
+          const subs = state.categories.filter(c => c.parent_id === r.id);
+          return [
+            `<option value="${r.id}">${r.icon} ${r.name}</option>`,
+            ...subs.map(s => `<option value="${s.id}">  ↳ ${s.icon} ${s.name}</option>`)
+          ];
+        }).join('');
+    }
+  }
   // Limpiar formulario de ingreso
   if (id === 'add-income-modal') {
     document.getElementById('inc-name').value = '';
@@ -2466,6 +3232,16 @@ function openModal(id) {
     document.getElementById('inc-type').value = 'salary';
     document.getElementById('inc-frequency').value = 'monthly';
     document.getElementById('inc-amount-group').style.display = 'grid';
+  }
+  // Limpiar formulario de préstamo
+  if (id === 'add-loan-modal') {
+    ['loan-name','loan-amount','loan-balance','loan-rate','loan-payment'].forEach(i => { const el = document.getElementById(i); if(el) el.value = ''; });
+    document.getElementById('loan-start').value = new Date().toISOString().split('T')[0];
+  }
+  // Limpiar formulario de dinero prestado
+  if (id === 'add-lent-modal') {
+    ['lent-person','lent-amount','lent-note'].forEach(i => { const el = document.getElementById(i); if(el) el.value = ''; });
+    document.getElementById('lent-date').value = new Date().toISOString().split('T')[0];
   }
   // Limpiar formulario de negocio
   if (id === 'add-business-modal') {

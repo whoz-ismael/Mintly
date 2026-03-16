@@ -1095,12 +1095,15 @@ function toggleDark() {
 // ══ PERFIL UI ════════════════════════════════════════════════
 function updateProfileUI() {
   const p = state.profile;
-  if (!p) return;
-  const initials = p.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
-  document.getElementById('home-username').textContent = `Hola, ${p.name.split(' ')[0]}`;
+  if (!p) { console.warn('updateProfileUI: state.profile es null'); return; }
+
+  console.log('updateProfileUI — profile.id:', p.id, '| couple:', state.couple ? 'activa' : 'null');
+
+  const initials = (p.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('home-username').textContent = `Hola, ${(p.name || '').split(' ')[0]}`;
   document.getElementById('home-avatar').textContent = initials;
-  document.getElementById('settings-name').textContent = p.name;
-  document.getElementById('settings-email').textContent = p.email;
+  document.getElementById('settings-name').textContent = p.name || '';
+  document.getElementById('settings-email').textContent = p.email || '';
   document.getElementById('settings-avatar').textContent = initials;
 
   const hour = new Date().getHours();
@@ -1108,10 +1111,17 @@ function updateProfileUI() {
   document.getElementById('home-greeting').textContent = greeting;
 
   if (state.couple) {
+    console.log('Pareja encontrada — user1_id:', state.couple.user1_id, '| user2_id:', state.couple.user2_id);
+    console.log('user1:', state.couple.user1, '| user2:', state.couple.user2);
     document.getElementById('home-tabs').style.display = 'flex';
     const partner = state.couple.user1_id === p.id ? state.couple.user2 : state.couple.user1;
-    document.getElementById('couple-status-text').textContent = `Conectado con ${partner?.name || 'tu pareja'}`;
-    document.getElementById('couple-status-sub').textContent = '✓ Cuenta en pareja activa';
+    const partnerName = partner?.name || 'tu pareja';
+    document.getElementById('couple-status-text').textContent = `Conectado con ${partnerName}`;
+    document.getElementById('couple-status-sub').textContent  = '✓ Cuenta en pareja activa';
+  } else {
+    document.getElementById('home-tabs').style.display = 'none';
+    document.getElementById('couple-status-text').textContent = 'Cuenta personal';
+    document.getElementById('couple-status-sub').textContent  = 'Vincularte con tu pareja →';
   }
 }
 

@@ -20,12 +20,30 @@ const DB = {
   // ── PAREJA ──────────────────────────────────────────────
   async getCouple() {
     const { data: { user } } = await sb.auth.getUser();
-    const { data } = await sb.from('couples')
-      .select('*, user1:user1_id(name,email,avatar_color), user2:user2_id(name,email,avatar_color)')
+
+    // Paso 1: buscar la pareja activa sin joins (más robusto)
+    const { data: couple, error } = await sb.from('couples')
+      .select('*')
       .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
       .eq('status', 'active')
-      .single();
-    return data;
+      .maybeSingle(); // maybeSingle no falla si hay 0 o 1 resultado
+
+    if (error) { console.error('getCouple error:', error.message); return null; }
+    if (!couple) return null;
+
+    // Paso 2: buscar los perfiles de ambos por separado
+    const partnerId = couple.user1_id === user.id ? couple.user2_id : couple.user1_id;
+
+    const [{ data: myProfile }, { data: partnerProfile }] = await Promise.all([
+      sb.from('profiles').select('id,name,email').eq('id', user.id).single(),
+      sb.from('profiles').select('id,name,email').eq('id', partnerId).single()
+    ]);
+
+    // Adjuntar los perfiles al objeto de la pareja
+    couple.user1 = couple.user1_id === user.id ? myProfile : partnerProfile;
+    couple.user2 = couple.user2_id === user.id ? myProfile : partnerProfile;
+
+    return couple;
   },
 
   async createCoupleInvite() {

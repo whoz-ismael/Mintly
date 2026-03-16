@@ -1743,13 +1743,21 @@ function checkIsDuplicate(tx, existing) {
   });
 }
 
+// Almacena los datos originales de Gemini para no depender del DOM al confirmar
+let _pdfTxData = [];
+let _pdfAccountId = null;
+
 function showPdfPreview(transactions, accountId) {
-  const acc = state.accounts.find(a => a.id === accountId);
+  // Guardar datos originales — clave para que confirmPdfImport use datos limpios
+  _pdfTxData    = transactions;
+  _pdfAccountId = accountId;
+
+  const acc      = state.accounts.find(a => a.id === accountId);
   const previewEl = document.getElementById('pdf-preview');
   previewEl.style.display = 'block';
 
   const dupCount = transactions.filter(t => t.isDuplicate).length;
-  const summary = dupCount > 0
+  const summary  = dupCount > 0
     ? `<div style="background:var(--amber-bg);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--amber);font-weight:600;">
         ⚠ ${dupCount} posible${dupCount > 1 ? 's' : ''} duplicado${dupCount > 1 ? 's' : ''} detectado${dupCount > 1 ? 's' : ''} — revisá antes de confirmar
        </div>`
@@ -1762,8 +1770,8 @@ function showPdfPreview(transactions, accountId) {
     ${summary}
     <div style="max-height:320px;overflow-y:auto;margin-bottom:14px;" id="pdf-tx-list">
       ${transactions.map((tx, i) => {
-        const isDup = tx.isDuplicate;
-        const bg    = isDup ? 'var(--amber-bg)' : 'var(--surface2)';
+        const isDup  = tx.isDuplicate;
+        const bg     = isDup ? 'var(--amber-bg)' : 'var(--surface2)';
         const dupTag = isDup
           ? `<span style="font-size:10px;font-weight:600;background:var(--amber);color:white;padding:2px 7px;border-radius:999px;margin-left:4px;">posible duplicado</span>`
           : '';
@@ -1789,44 +1797,57 @@ function showPdfPreview(transactions, accountId) {
 }
 
 async function confirmPdfImport(accountId) {
-  const acc = state.accounts.find(a => a.id === accountId);
+  const acc     = state.accounts.find(a => a.id === accountId);
   const batchId = crypto.randomUUID();
 
-  // Leer las transacciones que quedaron visibles en el DOM
-  const rows = document.querySelectorAll('#pdf-tx-list [data-index]');
+  // Qué índices siguen visibles en el DOM (el usuario pudo haber eliminado algunos)
+  const visibleIndices = new Set(
+    Array.from(document.querySelectorAll('#pdf-tx-list [data-index]'))
+         .map(r => parseInt(r.dataset.index))
+  );
+
+  // Usar los datos originales de Gemini, no el DOM
+  const toImport = _pdfTxData.filter((_, i) => visibleIndices.has(i));
   let saved = 0;
 
-  for (const row of rows) {
-    const i = parseInt(row.dataset.index);
-    // Recuperar datos del DOM
-    const descEl   = row.querySelector('p:first-child');
-    const amountEl = row.querySelectorAll('p')[2];
-    const dateEl   = row.querySelectorAll('p')[1];
+  console.log(`Importando ${toImport.length} transacciones...`);
 
-    const description = descEl?.textContent?.trim() || '';
-    const dateText    = dateEl?.textContent?.replace('IA','').trim() || '';
-    const amountText  = amountEl?.textContent?.replace(/[+\-$,RD€£]/g,'').trim() || '0';
-    const isIncome    = amountEl?.textContent?.startsWith('+');
-    const amount      = parseFloat(amountText) || 0;
+  for (const tx of toImport) {
+    // Validar y limpiar fecha
+    const dateClean = tx.date?.trim();
+    if (!dateClean || !/^\d{4}-\d{2}-\d{2}$/.test(dateClean)) {
+      console.warn('Fecha inválida, omitiendo:', tx.date, tx.description);
+      continue;
+    }
 
-    if (!description || !amount) continue;
+    const amount    = parseFloat(tx.amount) || 0;
+    if (amount <= 0) continue;
 
-    const amountUsd = await Rates.toUSD(amount, acc?.currency || 'USD');
-    await DB.createTransaction({
-      account_id: accountId,
-      category_id: null,
-      type: isIncome ? 'income' : 'expense',
-      amount_native: amount,
-      currency: acc?.currency || 'USD',
-      amount_usd: amountUsd,
-      rate_used: 1,
-      description,
-      date: dateText,
-      is_imported: true,
-      import_batch_id: batchId
+    const currency  = acc?.currency || 'USD';
+    const amountUsd = await Rates.toUSD(amount, currency);
+
+    const { error } = await DB.createTransaction({
+      account_id:       accountId,
+      category_id:      null,
+      type:             tx.type,
+      amount_native:    amount,
+      currency,
+      amount_usd:       amountUsd,
+      rate_used:        currency !== 'USD' ? await Rates.getRate(currency) : 1,
+      description:      tx.description.trim(),
+      date:             dateClean,
+      is_imported:      true,
+      import_batch_id:  batchId
     });
-    saved++;
+
+    if (error) {
+      console.error('Error guardando tx:', error.message, tx);
+    } else {
+      saved++;
+    }
   }
+
+  console.log(`${saved} transacciones guardadas correctamente`);
 
   closeModal('import-pdf-modal');
   // Resetear el modal para la próxima vez

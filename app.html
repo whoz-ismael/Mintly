@@ -814,6 +814,7 @@ function navigate(screen) {
   document.getElementById('screen-' + screen).classList.add('active');
   document.getElementById('nav-' + screen).classList.add('active');
   // Cargar contenido de la pantalla
+  if (screen === 'home')    loadHomeScreen();
   if (screen === 'budget')  loadBudgetScreen();
   if (screen === 'gastos')  loadTransactions();
   if (screen === 'cards')   loadAccountsTab('accounts');
@@ -1007,12 +1008,14 @@ async function renderAlerts() {
   });
 
   const el = document.getElementById('home-alerts');
+  const alertCard = document.getElementById('home-alerts-card');
+  if (!el) return; // pantalla home no visible aún
   if (alerts.length === 0) {
     el.innerHTML = '<p style="font-size:13px;color:var(--text3);text-align:center;">Sin alertas por ahora 🎉</p>';
-    document.getElementById('home-alerts-card').style.display = 'none';
+    if (alertCard) alertCard.style.display = 'none';
     return;
   }
-  document.getElementById('home-alerts-card').style.display = 'block';
+  if (alertCard) alertCard.style.display = 'block';
   el.innerHTML = alerts.map(a => `
     <div class="alert-item" style="background:${a.bg};">
       <span style="font-size:20px;">${a.icon}</span>
@@ -1480,8 +1483,13 @@ async function saveTx() {
   closeModal('add-tx-modal');
   showToast('Transacción guardada ✓', 'success');
   state.accounts = await DB.getAccounts();
-  loadTransactions();
-  loadHomeScreen();
+  populateAccountSelects();
+  // Refrescar la pantalla activa
+  const activeScreen = document.querySelector('.screen.active')?.id;
+  if (activeScreen === 'screen-gastos')  loadTransactions();
+  if (activeScreen === 'screen-cards')   renderAccountsList();
+  if (activeScreen === 'screen-home')    loadHomeScreen();
+  else loadHomeScreen(); // siempre actualizar home en background
 }
 
 async function saveTransfer() {
@@ -1511,7 +1519,10 @@ async function saveTransfer() {
   closeModal('add-tx-modal');
   showToast('Transferencia registrada ✓', 'success');
   state.accounts = await DB.getAccounts();
-  loadTransactions();
+  populateAccountSelects();
+  const activeScreen2 = document.querySelector('.screen.active')?.id;
+  if (activeScreen2 === 'screen-gastos') loadTransactions();
+  if (activeScreen2 === 'screen-cards')  renderAccountsList();
   loadHomeScreen();
 }
 
@@ -1818,9 +1829,19 @@ async function confirmPdfImport(accountId) {
   }
 
   closeModal('import-pdf-modal');
+  // Resetear el modal para la próxima vez
+  document.getElementById('pdf-drop-zone').style.display = 'block';
+  document.getElementById('pdf-preview').style.display  = 'none';
+  document.getElementById('pdf-file-input').value = '';
+
   showToast(`${saved} transacciones importadas ✓`, 'success');
   state.accounts = await DB.getAccounts();
+  populateAccountSelects();
   loadTransactions();
+  loadHomeScreen();
+  // Si el usuario está en cuentas, actualizar también esa pantalla
+  const activeScreen3 = document.querySelector('.screen.active')?.id;
+  if (activeScreen3 === 'screen-cards') renderAccountsList();
 }
 
 function fileToBase64(file) {

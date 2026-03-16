@@ -2728,7 +2728,7 @@ async function joinCoupleFromSettings() {
 
   const { data: { user } } = await sb.auth.getUser();
   const { data: couple, error } = await sb.from('couples')
-    .select('*').eq('invite_code', code).eq('status', 'pending').single();
+    .select('*').ilike('invite_code', code).eq('status', 'pending').single();
 
   if (error || !couple) {
     errEl.textContent = 'Código inválido o ya usado';

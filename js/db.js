@@ -30,8 +30,10 @@ const DB = {
 
   async createCoupleInvite() {
     const { data: { user } } = await sb.auth.getUser();
+    // Generar código único de 8 caracteres en mayúsculas
+    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
     const { data } = await sb.from('couples')
-      .insert({ user1_id: user.id })
+      .insert({ user1_id: user.id, invite_code: code, status: 'pending' })
       .select().single();
     return data;
   },

@@ -505,7 +505,7 @@ window.joinCouple = async function() {
   var code = document.getElementById('partner-code').value.trim().toUpperCase();
   if (!code) { showToast('Ingresá el código de tu pareja', 'err'); return; }
   var { data: couple, error } = await sb.from('couples')
-    .select('*').eq('invite_code', code).eq('status', 'pending').single();
+    .select('*').ilike('invite_code', code).eq('status', 'pending').single();
   if (error || !couple) { showToast('Código inválido o ya usado', 'err'); return; }
   if (couple.user1_id === userId) { showToast('No podés usar tu propio código', 'err'); return; }
   await sb.from('couples').update({ user2_id: userId, status: 'active' }).eq('id', couple.id);

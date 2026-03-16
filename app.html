@@ -2491,10 +2491,40 @@ async function saveDividend(businessId) {
   const accId    = document.getElementById('div-account').value;
   if (!amount) { showToast('Ingresá un monto', 'error'); return; }
 
-  await DB.addBusinessIncome({ business_id: businessId, type, amount, currency, date, account_id: accId });
+  // 1. Guardar en business_income
+  const { error: bizError } = await DB.addBusinessIncome({
+    business_id: businessId, type, amount, currency, date, account_id: accId
+  });
+  if (bizError) { console.error(bizError); showToast('Error al guardar', 'error'); return; }
+
+  // 2. Obtener nombre del negocio para la descripción
+  const { data: biz } = await sb.from('businesses').select('name').eq('id', businessId).single();
+  const typeLabels = { dividend: 'Reparto de ganancias', withdrawal: 'Retiro', other: 'Ingreso de negocio' };
+  const description = `${typeLabels[type] || 'Ingreso'} — ${biz?.name || 'Negocio'}`;
+
+  // 3. Crear transacción en transactions (para que aparezca en Gastos y en el flujo del mes)
+  const { error: txError } = await DB.createTransaction({
+    account_id:    accId,
+    category_id:   null,
+    type:          'income',
+    amount_native: amount,
+    currency,
+    amount_usd:    await Rates.toUSD(amount, currency),
+    rate_used:     currency !== 'USD' ? await Rates.getRate(currency) : 1,
+    description,
+    date,
+    notes:         `Negocio: ${biz?.name || ''}`
+  });
+  if (txError) console.error('Error creando transacción:', txError.message);
+
   document.getElementById('dividend-modal').remove();
   showToast('Ingreso registrado ✓', 'success');
+
+  // 4. Actualizar estado
+  state.accounts = await DB.getAccounts();
+  populateAccountSelects();
   renderBusinessTab();
+  loadHomeScreen();
 }
 
 // ══ METAS DE AHORRO ══════════════════════════════════════════

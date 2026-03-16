@@ -1,17 +1,5 @@
-# ============================================================
-#  FinanzasJuntos — Configuración de Netlify
-# ============================================================
-
 [build]
   functions = "netlify/functions"
 
-[functions]
-  node_bundler = "esbuild"
-
-# Aumentar el límite de tamaño del body para PDFs (10MB)
-[[headers]]
-  for = "/.netlify/functions/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Headers = "Content-Type"
-    Access-Control-Allow-Methods = "POST, OPTIONS"
+[functions."parse-pdf"]
+  timeout = 120

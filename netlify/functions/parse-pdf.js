@@ -1,21 +1,20 @@
 // ============================================================
 //  FinanzasJuntos — Netlify Function: parse-pdf
-//  Usa gemini-1.5-flash-8b (4M TPM free tier, ideal para PDFs grandes)
+//  Modelo: gemini-2.5-flash-lite (1000 req/día gratis)
 // ============================================================
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// Modelos en orden de fallback
+// Modelos actuales del free tier (2025+), en orden de preferencia
 const MODELS = [
-  'gemini-1.5-flash-8b',
-  'gemini-1.5-flash',
-  'gemini-2.0-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
 ];
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 async function callGemini(apiKey, pdfBase64, modelIndex = 0, attempt = 1) {
-  const model = MODELS[modelIndex];
+  const model = MODELS[modelIndex] || MODELS[0];
   const year  = new Date().getFullYear();
 
   const prompt = `Analizá este estado de cuenta bancario y extraé TODAS las transacciones.
@@ -30,7 +29,7 @@ Reglas:
 - description: nombre limpio sin codigos internos del banco
 - Ignora saldos, totales, encabezados y fechas de corte`;
 
-  console.log(`Intento con ${model} (attempt ${attempt})...`);
+  console.log(`Usando ${model} (attempt ${attempt})...`);
 
   const response = await fetch(
     `${GEMINI_BASE}/${model}:generateContent?key=${apiKey}`,
@@ -49,21 +48,18 @@ Reglas:
     }
   );
 
-  // Rate limit — reintentar con espera
-  if (response.status === 429) {
-    // Si quedan más modelos, probar el siguiente
-    if (modelIndex < MODELS.length - 1) {
-      console.log(`429 en ${model}, probando ${MODELS[modelIndex + 1]}...`);
-      await sleep(3000);
-      return callGemini(apiKey, pdfBase64, modelIndex + 1, 1);
-    }
-    // Mismo modelo, reintentar hasta 3 veces
-    if (attempt < 3) {
-      const wait = attempt * 20000;
-      console.log(`429 en todos los modelos, esperando ${wait/1000}s...`);
-      await sleep(wait);
-      return callGemini(apiKey, pdfBase64, 0, attempt + 1);
-    }
+  // 404 = modelo no disponible → probar el siguiente
+  if (response.status === 404 && modelIndex < MODELS.length - 1) {
+    console.log(`${model} no disponible (404), probando ${MODELS[modelIndex + 1]}...`);
+    return callGemini(apiKey, pdfBase64, modelIndex + 1, attempt);
+  }
+
+  // 429 = rate limit → esperar y reintentar
+  if (response.status === 429 && attempt < 3) {
+    const wait = attempt * 20000;
+    console.log(`Rate limit, esperando ${wait/1000}s...`);
+    await sleep(wait);
+    return callGemini(apiKey, pdfBase64, modelIndex, attempt + 1);
   }
 
   console.log(`Respuesta de ${model}: ${response.status}`);
@@ -71,7 +67,6 @@ Reglas:
 }
 
 exports.handler = async function(event) {
-  // CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -105,32 +100,31 @@ exports.handler = async function(event) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Falta el PDF' }) };
   }
 
-  // ~8MB en base64
   if (pdfBase64.length > 11 * 1024 * 1024) {
-    return { statusCode: 413, body: JSON.stringify({ error: 'El PDF es demasiado grande (máximo ~8MB). Intentá con un rango de fechas menor.' }) };
+    return { statusCode: 413, body: JSON.stringify({ error: 'El PDF es demasiado grande (máximo ~8MB).' }) };
   }
 
-  const sizeKb = (pdfBase64.length / 1024).toFixed(0);
-  console.log(`PDF recibido: ${sizeKb} KB en base64`);
+  console.log(`PDF recibido: ${(pdfBase64.length / 1024).toFixed(0)} KB`);
 
   try {
     const response = await callGemini(GEMINI_KEY, pdfBase64);
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`Error final ${response.status}:`, errText.substring(0, 300));
+      console.error(`Error ${response.status}:`, errText.substring(0, 300));
 
       const msgs = {
-        400: 'El PDF no pudo ser procesado. Asegurate de que sea un estado de cuenta válido y no esté protegido con contraseña.',
-        401: 'API key inválida. Verificá GEMINI_API_KEY en Netlify.',
-        403: 'Sin acceso a la API de Gemini. Verificá tu API key.',
-        429: 'Límite de Gemini alcanzado. El PDF puede ser muy grande — intentá con un extracto de menos páginas, o esperá unos minutos.',
+        400: 'El PDF no pudo ser procesado. Verificá que sea un estado de cuenta válido y no esté protegido con contraseña.',
+        401: 'API key inválida. Verificá GEMINI_API_KEY en Netlify → Site configuration → Environment variables.',
+        403: 'Sin acceso a la API de Gemini. Verificá tu API key en aistudio.google.com.',
+        404: 'Modelo de Gemini no disponible. Contactá al soporte.',
+        429: 'Límite de Gemini alcanzado. Esperá unos minutos e intentá de nuevo.',
         500: 'Error interno de Gemini. Intentá de nuevo en unos minutos.',
       };
 
       return {
         statusCode: 502,
-        body: JSON.stringify({ error: msgs[response.status] || `Error Gemini: ${response.status}` })
+        body: JSON.stringify({ error: msgs[response.status] || `Error Gemini ${response.status}` })
       };
     }
 
@@ -138,21 +132,19 @@ exports.handler = async function(event) {
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!text) {
-      console.error('Respuesta vacía de Gemini:', JSON.stringify(data).substring(0, 300));
       return {
         statusCode: 422,
         body: JSON.stringify({ error: 'Gemini no encontró transacciones en el PDF. Verificá que sea un estado de cuenta bancario.' })
       };
     }
 
-    // Limpiar markdown
     const clean = text.replace(/```json\n?|\n?```/g, '').trim();
 
     let transactions;
     try {
       transactions = JSON.parse(clean);
     } catch(e) {
-      console.error('JSON parse error. Raw:', clean.substring(0, 400));
+      console.error('JSON parse error:', clean.substring(0, 400));
       return {
         statusCode: 422,
         body: JSON.stringify({ error: 'No se pudo interpretar la respuesta de Gemini. Intentá de nuevo.' })
@@ -163,16 +155,13 @@ exports.handler = async function(event) {
       return { statusCode: 422, body: JSON.stringify({ error: 'Formato de respuesta inesperado.' }) };
     }
 
-    // Filtrar entradas inválidas
     const valid = transactions.filter(t =>
-      t.date &&
-      t.description &&
-      typeof t.amount === 'number' &&
-      t.amount > 0 &&
+      t.date && t.description &&
+      typeof t.amount === 'number' && t.amount > 0 &&
       (t.type === 'income' || t.type === 'expense')
     );
 
-    console.log(`Éxito: ${valid.length} transacciones válidas de ${transactions.length} totales`);
+    console.log(`Éxito: ${valid.length} transacciones de ${transactions.length} totales`);
 
     return {
       statusCode: 200,
@@ -187,7 +176,7 @@ exports.handler = async function(event) {
     console.error('Error interno:', e.message);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Error de conexión con Gemini: ' + e.message })
+      body: JSON.stringify({ error: 'Error de conexión: ' + e.message })
     };
   }
 };

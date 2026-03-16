@@ -71,6 +71,16 @@ const DB = {
 
   async createAccount(account) {
     const { data: { user } } = await sb.auth.getUser();
+    // Verificar nombre duplicado en la DB (segunda línea de defensa)
+    const { data: existing } = await sb.from('accounts')
+      .select('id')
+      .eq('user_id', user.id)
+      .ilike('name', account.name)
+      .eq('is_archived', false)
+      .single();
+    if (existing) {
+      return { data: null, error: { message: `Ya existe una cuenta llamada "${account.name}"` } };
+    }
     const { data, error } = await sb.from('accounts')
       .insert({ ...account, user_id: user.id })
       .select().single();

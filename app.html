@@ -733,6 +733,30 @@
   </div>
 </div>
 
+<!-- Modal: eliminar cuenta -->
+<div class="modal-overlay" id="delete-account-modal" onclick="closeModalClick(event,'delete-account-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:40px;margin-bottom:8px;">⚠️</div>
+      <h3 style="font-size:18px;font-weight:700;color:var(--red);">Eliminar cuenta</h3>
+      <p style="font-size:14px;color:var(--text2);margin-top:6px;" id="delete-acc-subtitle">Esta acción no se puede deshacer.</p>
+    </div>
+    <div style="background:var(--red-bg);border-radius:12px;padding:12px 14px;margin-bottom:18px;">
+      <p style="font-size:12px;color:var(--red);line-height:1.5;">Se eliminarán la cuenta y <strong>todas sus transacciones asociadas</strong>. Esta acción es permanente.</p>
+    </div>
+    <div class="form-group">
+      <label class="input-label">Para confirmar, escribí el código: <strong id="delete-confirm-code" style="color:var(--accent);letter-spacing:2px;font-size:15px;"></strong></label>
+      <input id="delete-code-input" class="input" placeholder="Escribí el código aquí" autocomplete="off" autocorrect="off" spellcheck="false">
+    </div>
+    <button class="btn btn-primary" id="delete-acc-btn"
+            style="background:var(--red);"
+            onclick="confirmDeleteAccount()">
+      Eliminar cuenta permanentemente
+    </button>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -1186,7 +1210,10 @@ async function renderAccountsList() {
                 <p style="font-size:11px;color:rgba(255,255,255,0.6);font-weight:500;">Tarjeta de crédito</p>
                 <p style="font-size:18px;font-weight:700;">${acc.name}</p>
               </div>
-              <button onclick="openCreditLimitModal('${acc.id}')" style="font-size:10px;font-weight:600;background:rgba(255,255,255,0.15);border:none;color:white;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;">✏ Editar límite</button>
+              <div style="display:flex;gap:6px;">
+                <button onclick="openCreditLimitModal('${acc.id}')" style="font-size:10px;font-weight:600;background:rgba(255,255,255,0.15);border:none;color:white;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;">✏ Límite</button>
+                <button onclick="openDeleteAccountModal('${acc.id}','${acc.name}')" style="font-size:10px;font-weight:600;background:rgba(239,68,68,0.3);border:none;color:#FCA5A5;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;">🗑 Eliminar</button>
+              </div>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
               <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Adeudado</p><p style="font-size:17px;font-weight:700;color:#FCA5A5;">${Rates.format(acc.balance, acc.currency)}</p></div>
@@ -1219,6 +1246,7 @@ async function renderAccountsList() {
             <div style="text-align:right;">
               <p style="font-size:17px;font-weight:700;color:var(--green);">${Rates.format(acc.balance, acc.currency)}</p>
               ${acc.currency !== 'USD' ? `<p style="font-size:11px;color:var(--text3);">≈ ${Rates.format(balanceUsd)}</p>` : ''}
+              <button onclick="openDeleteAccountModal('${acc.id}','${acc.name}')" style="margin-top:6px;font-size:11px;font-weight:600;background:var(--red-bg);color:var(--red);border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;">🗑 Eliminar</button>
             </div>
           </div>
         </div>`;
@@ -1501,21 +1529,41 @@ async function saveAccount() {
   const balance  = parseFloat(document.getElementById('acc-balance').value) || 0;
   if (!name) { showToast('Ingresá un nombre', 'error'); return; }
 
+  // Validar nombre único (case-insensitive)
+  const nameLower = name.toLowerCase();
+  const duplicate = state.accounts.find(a => a.name.toLowerCase() === nameLower);
+  if (duplicate) {
+    showToast(`Ya tenés una cuenta llamada "${duplicate.name}"`, 'error');
+    return;
+  }
+
   const account = { name, type, currency, balance };
   if (type === 'credit') {
     account.credit_limit    = parseFloat(document.getElementById('acc-limit').value) || 0;
     account.cut_off_day     = parseInt(document.getElementById('acc-cutoff').value) || null;
     account.payment_due_day = parseInt(document.getElementById('acc-dueday').value) || null;
     account.credit_reminder_enabled = true;
+    account.credit_reminder_months  = 6;
   }
   if (type === 'savings') {
     account.interest_rate = parseFloat(document.getElementById('acc-interest').value) || 0;
   }
 
-  const { error } = await DB.createAccount(account);
-  if (error) { showToast('Error al guardar la cuenta', 'error'); return; }
+  const btn = document.querySelector('#add-account-modal .btn-primary');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
 
-  closeModal('add-account-modal');
+  const { data, error } = await DB.createAccount(account);
+
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Guardar cuenta'; }
+
+  if (error) {
+    console.error('saveAccount error:', error);
+    showToast('Error al guardar: ' + (error.message || 'intentá de nuevo'), 'error');
+    return;
+  }
+
+  // Cerrar modal PRIMERO, luego actualizar estado
+  document.getElementById('add-account-modal').classList.remove('open');
   showToast('Cuenta creada ✓', 'success');
   state.accounts = await DB.getAccounts();
   populateAccountSelects();
@@ -1632,8 +1680,18 @@ async function handlePdfSelect(event) {
     const { transactions } = result;
     console.log(`Gemini extrajo ${transactions.length} transacciones`);
 
+    // Buscar duplicados contra transacciones ya existentes en esa cuenta
+    const existing = await loadExistingForDuplicateCheck(accountId, transactions);
+    const withDupFlag = transactions.map(tx => ({
+      ...tx,
+      isDuplicate: checkIsDuplicate(tx, existing)
+    }));
+
+    const dupCount = withDupFlag.filter(t => t.isDuplicate).length;
+    if (dupCount > 0) console.warn(`${dupCount} posibles duplicados detectados`);
+
     document.getElementById('pdf-status').style.display = 'none';
-    showPdfPreview(transactions, accountId);
+    showPdfPreview(withDupFlag, accountId);
 
   } catch(e) {
     console.error('PDF import error:', e.message);
@@ -1643,44 +1701,118 @@ async function handlePdfSelect(event) {
   }
 }
 
+// Carga transacciones existentes del rango de fechas del PDF para comparar
+async function loadExistingForDuplicateCheck(accountId, transactions) {
+  if (!transactions.length) return [];
+  const dates = transactions.map(t => t.date).sort();
+  const from  = dates[0];
+  const to    = dates[dates.length - 1];
+  const { data: { user } } = await sb.auth.getUser();
+  const { data } = await sb.from('transactions')
+    .select('date, amount_native, description, type')
+    .eq('user_id', user.id)
+    .eq('account_id', accountId)
+    .gte('date', from).lte('date', to);
+  return data || [];
+}
+
+// Compara una transacción nueva contra las existentes
+// Criterio: misma fecha + mismo monto + descripción similar (>60% de palabras en común)
+function checkIsDuplicate(tx, existing) {
+  return existing.some(e => {
+    if (e.date !== tx.date) return false;
+    if (Math.abs(parseFloat(e.amount_native) - parseFloat(tx.amount)) > 0.01) return false;
+    // Similaridad de descripción por palabras
+    const wordsA = tx.description.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const wordsB = e.description.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    if (!wordsA.length || !wordsB.length) return e.description.toLowerCase() === tx.description.toLowerCase();
+    const matches = wordsA.filter(w => wordsB.includes(w)).length;
+    const similarity = matches / Math.max(wordsA.length, wordsB.length);
+    return similarity >= 0.6;
+  });
+}
+
 function showPdfPreview(transactions, accountId) {
   const acc = state.accounts.find(a => a.id === accountId);
   const previewEl = document.getElementById('pdf-preview');
   previewEl.style.display = 'block';
 
+  const dupCount = transactions.filter(t => t.isDuplicate).length;
+  const summary = dupCount > 0
+    ? `<div style="background:var(--amber-bg);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--amber);font-weight:600;">
+        ⚠ ${dupCount} posible${dupCount > 1 ? 's' : ''} duplicado${dupCount > 1 ? 's' : ''} detectado${dupCount > 1 ? 's' : ''} — revisá antes de confirmar
+       </div>`
+    : '';
+
   previewEl.innerHTML = `
-    <p style="font-size:13px;font-weight:600;color:var(--text1);margin-bottom:10px;">${transactions.length} transacciones detectadas — revisá y confirmá:</p>
-    <div style="max-height:300px;overflow-y:auto;margin-bottom:14px;">
-      ${transactions.map((tx, i) => `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:var(--radius-xs);background:var(--surface2);margin-bottom:6px;">
-          <div style="flex:1;">
-            <p style="font-size:13px;font-weight:500;color:var(--text1);">${tx.description}</p>
-            <p style="font-size:11px;color:var(--text3);">${tx.date} <span class="ai-badge">IA</span></p>
+    <p style="font-size:13px;font-weight:600;color:var(--text1);margin-bottom:10px;">
+      ${transactions.length} transacciones detectadas — revisá y confirmá:
+    </p>
+    ${summary}
+    <div style="max-height:320px;overflow-y:auto;margin-bottom:14px;" id="pdf-tx-list">
+      ${transactions.map((tx, i) => {
+        const isDup = tx.isDuplicate;
+        const bg    = isDup ? 'var(--amber-bg)' : 'var(--surface2)';
+        const dupTag = isDup
+          ? `<span style="font-size:10px;font-weight:600;background:var(--amber);color:white;padding:2px 7px;border-radius:999px;margin-left:4px;">posible duplicado</span>`
+          : '';
+        return `
+        <div data-index="${i}" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:var(--radius-xs);background:${bg};margin-bottom:6px;${isDup ? 'border:1.5px solid var(--amber);' : ''}">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
+              <p style="font-size:13px;font-weight:500;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${tx.description}</p>
+              ${dupTag}
+            </div>
+            <p style="font-size:11px;color:var(--text3);margin-top:2px;">${tx.date} <span class="ai-badge">IA</span></p>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:8px;">
             <p style="font-size:13px;font-weight:600;color:${tx.type==='income'?'var(--green)':'var(--red)'};">${tx.type==='income'?'+':'-'}${Rates.format(tx.amount, acc?.currency||'USD')}</p>
-            <button onclick="this.closest('div[style]').remove()" style="background:var(--red-bg);color:var(--red);border:none;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px;">✕</button>
+            <button onclick="this.closest('[data-index]').remove()" style="background:var(--red-bg);color:var(--red);border:none;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px;flex-shrink:0;">✕</button>
           </div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>
-    <button class="btn btn-primary" onclick="confirmPdfImport(${JSON.stringify(transactions).replace(/"/g,'&quot;')}, '${accountId}')">Confirmar e importar todas</button>`;
+    <button class="btn btn-primary" onclick="confirmPdfImport('${accountId}')">
+      Confirmar e importar
+    </button>`;
 }
 
-async function confirmPdfImport(transactions, accountId) {
+async function confirmPdfImport(accountId) {
   const acc = state.accounts.find(a => a.id === accountId);
-  let saved = 0;
   const batchId = crypto.randomUUID();
 
-  for (const tx of transactions) {
-    const amountUsd = await Rates.toUSD(tx.amount, acc?.currency || 'USD');
-    const cat = state.categories.find(c => c.name.toLowerCase().includes(tx.category.toLowerCase()));
+  // Leer las transacciones que quedaron visibles en el DOM
+  const rows = document.querySelectorAll('#pdf-tx-list [data-index]');
+  let saved = 0;
+
+  for (const row of rows) {
+    const i = parseInt(row.dataset.index);
+    // Recuperar datos del DOM
+    const descEl   = row.querySelector('p:first-child');
+    const amountEl = row.querySelectorAll('p')[2];
+    const dateEl   = row.querySelectorAll('p')[1];
+
+    const description = descEl?.textContent?.trim() || '';
+    const dateText    = dateEl?.textContent?.replace('IA','').trim() || '';
+    const amountText  = amountEl?.textContent?.replace(/[+\-$,RD€£]/g,'').trim() || '0';
+    const isIncome    = amountEl?.textContent?.startsWith('+');
+    const amount      = parseFloat(amountText) || 0;
+
+    if (!description || !amount) continue;
+
+    const amountUsd = await Rates.toUSD(amount, acc?.currency || 'USD');
     await DB.createTransaction({
-      account_id: accountId, category_id: cat?.id || null,
-      type: tx.type, amount_native: tx.amount,
+      account_id: accountId,
+      category_id: null,
+      type: isIncome ? 'income' : 'expense',
+      amount_native: amount,
       currency: acc?.currency || 'USD',
-      amount_usd: amountUsd, rate_used: 1,
-      description: tx.description, date: tx.date,
-      is_imported: true, import_batch_id: batchId
+      amount_usd: amountUsd,
+      rate_used: 1,
+      description,
+      date: dateText,
+      is_imported: true,
+      import_batch_id: batchId
     });
     saved++;
   }
@@ -2116,6 +2248,63 @@ async function joinCoupleFromSettings() {
   updateProfileUI();
   closeModal('couple-modal');
   showToast('¡Conectados con tu pareja! 💑', 'success');
+}
+
+
+// ══ ELIMINAR CUENTA ═══════════════════════════════════════════
+
+let _deleteAccountId = null;
+let _deleteConfirmCode = null;
+
+function openDeleteAccountModal(accountId, accountName) {
+  _deleteAccountId = accountId;
+  // Generar código random de 4 caracteres
+  _deleteConfirmCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+
+  document.getElementById('delete-acc-subtitle').textContent = `Vas a eliminar "${accountName}". Esta acción no se puede deshacer.`;
+  document.getElementById('delete-confirm-code').textContent = _deleteConfirmCode;
+  document.getElementById('delete-code-input').value = '';
+
+  // Deshabilitar botón hasta que se ingrese el código correcto
+  const btn = document.getElementById('delete-acc-btn');
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+
+  document.getElementById('delete-account-modal').classList.add('open');
+
+  // Habilitar botón solo cuando el código coincide
+  document.getElementById('delete-code-input').oninput = function() {
+    const match = this.value.trim().toUpperCase() === _deleteConfirmCode;
+    btn.disabled = !match;
+    btn.style.opacity = match ? '1' : '0.5';
+  };
+}
+
+async function confirmDeleteAccount() {
+  if (!_deleteAccountId) return;
+
+  const btn = document.getElementById('delete-acc-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    // Eliminar transacciones asociadas primero
+    await sb.from('transactions').delete().eq('account_id', _deleteAccountId);
+    // Eliminar la cuenta
+    await sb.from('accounts').delete().eq('id', _deleteAccountId);
+
+    document.getElementById('delete-account-modal').classList.remove('open');
+    showToast('Cuenta eliminada', '');
+    state.accounts = await DB.getAccounts();
+    populateAccountSelects();
+    renderAccountsList();
+    loadHomeScreen();
+  } catch(e) {
+    console.error('Error eliminando cuenta:', e);
+    showToast('Error al eliminar. Intentá de nuevo.', 'error');
+    btn.disabled = false;
+    btn.innerHTML = 'Eliminar cuenta permanentemente';
+  }
 }
 
 // ══ HELPERS ══════════════════════════════════════════════════

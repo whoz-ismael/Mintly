@@ -2743,11 +2743,25 @@ async function joinCoupleFromSettings() {
     return;
   }
 
-  await sb.from('couples').update({ user2_id: user.id, status: 'active' }).eq('id', couple.id);
+  const { error: updateError } = await sb.from('couples')
+    .update({ user2_id: user.id, status: 'active' }).eq('id', couple.id);
+
+  if (updateError) {
+    errEl.textContent = 'Error al vincular: ' + updateError.message;
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.innerHTML = 'Vincularme';
+    return;
+  }
+
+  // Recargar estado fresco
   state.couple = await DB.getCouple();
+  state.profile = await DB.getProfile();
   updateProfileUI();
   closeModal('couple-modal');
   showToast('¡Conectados con tu pareja! 💑', 'success');
+
+  // Recargar pantalla actual para reflejar el vínculo
+  loadHomeScreen();
 }
 
 

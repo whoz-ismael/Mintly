@@ -1587,12 +1587,111 @@ async function renderAccountsList() {
     totalUsd += await Rates.toUSD(acc.balance, acc.currency);
   }
   html += `
-    <div style="padding:14px 16px;background:var(--accent-bg);border-radius:var(--radius-sm);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:13px;font-weight:600;color:var(--accent);">Total en USD</span>
+    <div style="padding:14px 16px;background:var(--accent-bg);border-radius:var(--radius-sm);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;font-weight:600;color:var(--accent);">Mi total en USD</span>
       <span style="font-size:18px;font-weight:700;color:var(--accent);">${Rates.format(totalUsd)}</span>
     </div>`;
 
+  // ── Sección colapsable de cuentas de la pareja ──────────
+  if (state.couple) {
+    const { data: { user } } = await sb.auth.getUser();
+    const partnerId   = state.couple.user1_id === user.id ? state.couple.user2_id : state.couple.user1_id;
+    const partnerName = (state.couple.user1_id === user.id ? state.couple.user2?.name : state.couple.user1?.name) || 'Tu pareja';
+    const initial     = partnerName[0].toUpperCase();
+
+    const { data: partnerAccs } = await sb.from('accounts')
+      .select('*').eq('user_id', partnerId).eq('is_archived', false);
+
+    let partnerTotal = 0;
+    let partnerHtml  = '';
+
+    for (const acc of (partnerAccs || [])) {
+      const usd = await Rates.toUSD(acc.balance, acc.currency);
+      partnerTotal += acc.type === 'credit' ? -usd : usd;
+
+      if (acc.type === 'credit') {
+        const used = acc.balance;
+        const util = acc.credit_limit > 0 ? (used / acc.credit_limit) * 100 : 0;
+        partnerHtml += `
+          <div style="background:linear-gradient(135deg,#1e1b4b,#312e81,#4338ca);border-radius:16px;padding:16px;margin-bottom:8px;color:white;">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+              <div>
+                <p style="font-size:10px;color:rgba(255,255,255,0.6);">Tarjeta de crédito</p>
+                <p style="font-size:16px;font-weight:700;">${acc.name}</p>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+              <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Adeudado</p><p style="font-size:15px;font-weight:700;color:#FCA5A5;">${Rates.format(acc.balance, acc.currency)}</p></div>
+              <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Disponible</p><p style="font-size:15px;font-weight:700;color:#86EFAC;">${Rates.format(acc.credit_limit - acc.balance, acc.currency)}</p></div>
+              <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Límite</p><p style="font-size:15px;font-weight:700;">${Rates.format(acc.credit_limit, acc.currency)}</p></div>
+            </div>
+            <div style="height:5px;background:rgba(255,255,255,0.2);border-radius:999px;overflow:hidden;">
+              <div style="height:100%;width:${Math.min(util,100)}%;background:linear-gradient(90deg,#86EFAC,#FCA5A5);border-radius:999px;"></div>
+            </div>
+          </div>`;
+      } else {
+        const typeIcons = { savings:'🏦', checking:'💳', cash:'💵' };
+        const typeBg    = { savings:'var(--green-bg)', checking:'var(--blue-bg)', cash:'var(--amber-bg)' };
+        partnerHtml += `
+          <div class="card" style="padding:14px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="icon-box" style="background:${typeBg[acc.type]||'var(--surface2)'};">${typeIcons[acc.type]||'🏦'}</div>
+                <div>
+                  <p style="font-size:14px;font-weight:600;color:var(--text1);">${acc.name}</p>
+                  <p style="font-size:11px;color:var(--text3);">${acc.type === 'savings' ? 'Ahorro' : acc.type === 'checking' ? 'Débito' : 'Efectivo'} · ${acc.currency}</p>
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <p style="font-size:15px;font-weight:700;color:var(--green);">${Rates.format(acc.balance, acc.currency)}</p>
+                ${acc.currency !== 'USD' ? `<p style="font-size:11px;color:var(--text3);">≈ ${Rates.format(usd)}</p>` : ''}
+              </div>
+            </div>
+          </div>`;
+      }
+    }
+
+    // Total pareja en USD
+    partnerHtml += `
+      <div style="padding:12px 14px;background:#FDF2F8;border-radius:12px;margin-top:4px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:13px;font-weight:600;color:#EC4899;">Total de ${partnerName} en USD</span>
+        <span style="font-size:17px;font-weight:700;color:#EC4899;">${Rates.format(partnerTotal)}</span>
+      </div>`;
+
+    html += `
+      <!-- Sección colapsable pareja -->
+      <div style="margin-bottom:10px;">
+        <button onclick="togglePartnerAccounts(this)"
+          style="width:100%;display:flex;align-items:center;justify-content:space-between;
+                 padding:13px 16px;background:var(--surface);border:1.5px solid var(--border);
+                 border-radius:16px;cursor:pointer;font-family:inherit;transition:all 0.2s;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:32px;height:32px;border-radius:50%;background:#EC4899;color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;">${initial}</div>
+            <div style="text-align:left;">
+              <p style="font-size:14px;font-weight:600;color:var(--text1);">Cuentas de ${partnerName}</p>
+              <p style="font-size:11px;color:var(--text3);">${(partnerAccs||[]).length} cuenta${(partnerAccs||[]).length !== 1 ? 's' : ''} · ${Rates.format(partnerTotal)} neto</p>
+            </div>
+          </div>
+          <span id="partner-acc-chevron" style="font-size:18px;color:var(--text3);transition:transform 0.25s;">›</span>
+        </button>
+        <div id="partner-acc-content" style="display:none;margin-top:8px;">
+          ${partnerHtml}
+        </div>
+      </div>`;
+  }
+
   el.innerHTML = html;
+}
+
+function togglePartnerAccounts(btn) {
+  const content  = document.getElementById('partner-acc-content');
+  const chevron  = document.getElementById('partner-acc-chevron');
+  const isOpen   = content.style.display !== 'none';
+  content.style.display = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+  // Cambiar borde del botón al abrir
+  btn.style.borderColor = isOpen ? 'var(--border)' : '#EC4899';
+  btn.style.background  = isOpen ? 'var(--surface)' : '#FDF2F8';
 }
 
 async function renderIncomeTab() {

@@ -1,11 +1,11 @@
 // ============================================================
 //  FinanzasJuntos — Netlify Function: parse-pdf
 //  Modelo: gemini-2.5-flash-lite (1000 req/día gratis)
+//  Extrae transacciones Y asigna categorías en una sola llamada
 // ============================================================
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// Modelos actuales del free tier (2025+), en orden de preferencia
 const MODELS = [
   'gemini-2.5-flash-lite',
   'gemini-2.5-flash',
@@ -13,23 +13,30 @@ const MODELS = [
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-async function callGemini(apiKey, pdfBase64, modelIndex = 0, attempt = 1) {
+async function callGemini(apiKey, pdfBase64, categories, modelIndex = 0, attempt = 1) {
   const model = MODELS[modelIndex] || MODELS[0];
   const year  = new Date().getFullYear();
 
+  // Construir la lista de categorías para el prompt
+  const categoryNames = categories && categories.length > 0
+    ? categories.map(c => c.name).join(', ')
+    : 'Alimentación, Transporte, Hogar, Salud, Ocio, Ropa, Educación, Suscripciones, Viajes, Trabajo, Otros';
+
   const prompt = `Analizá este estado de cuenta bancario y extraé TODAS las transacciones.
 Respondé SOLO con un array JSON válido, sin markdown, sin texto extra:
-[{"date":"YYYY-MM-DD","description":"nombre del comercio","amount":123.45,"type":"expense o income"}]
+[{"date":"YYYY-MM-DD","description":"nombre del comercio","amount":123.45,"type":"expense o income","category":"nombre de categoría"}]
 
-Reglas:
-- amount siempre positivo y mayor a cero
-- type = "income" para depositos, creditos, transferencias recibidas, nomina, intereses
-- type = "expense" para debitos, compras, pagos, cargos, retiros
-- date en formato YYYY-MM-DD, si no hay año usa ${year}
-- description: nombre limpio sin codigos internos del banco
-- Ignora saldos, totales, encabezados y fechas de corte`;
+Reglas para los campos:
+- amount: siempre positivo y mayor a cero
+- type: "income" para depósitos, créditos, transferencias recibidas, nómina, intereses. "expense" para débitos, compras, pagos, cargos, retiros
+- date: formato YYYY-MM-DD. Si no hay año, usá ${year}
+- description: nombre limpio del comercio, sin códigos internos del banco
+- category: asigná la categoría más apropiada de esta lista: ${categoryNames}. Si es un ingreso o no encaja en ninguna, usá "Otros". Si no estás seguro, dejá el campo vacío ""
 
-  console.log(`Usando ${model} (attempt ${attempt})...`);
+No incluyas transacciones con monto 0.
+Ignorá líneas de saldo, totales, encabezados y fechas de corte.`;
+
+  console.log(`Usando ${model} (attempt ${attempt}), ${categories?.length || 0} categorías disponibles...`);
 
   const response = await fetch(
     `${GEMINI_BASE}/${model}:generateContent?key=${apiKey}`,
@@ -48,18 +55,16 @@ Reglas:
     }
   );
 
-  // 404 = modelo no disponible → probar el siguiente
   if (response.status === 404 && modelIndex < MODELS.length - 1) {
     console.log(`${model} no disponible (404), probando ${MODELS[modelIndex + 1]}...`);
-    return callGemini(apiKey, pdfBase64, modelIndex + 1, attempt);
+    return callGemini(apiKey, pdfBase64, categories, modelIndex + 1, attempt);
   }
 
-  // 429 = rate limit → esperar y reintentar
   if (response.status === 429 && attempt < 3) {
     const wait = attempt * 20000;
     console.log(`Rate limit, esperando ${wait/1000}s...`);
     await sleep(wait);
-    return callGemini(apiKey, pdfBase64, modelIndex, attempt + 1);
+    return callGemini(apiKey, pdfBase64, categories, modelIndex, attempt + 1);
   }
 
   console.log(`Respuesta de ${model}: ${response.status}`);
@@ -95,7 +100,7 @@ exports.handler = async function(event) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Body inválido' }) };
   }
 
-  const { pdfBase64 } = body;
+  const { pdfBase64, categories } = body;
   if (!pdfBase64) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Falta el PDF' }) };
   }
@@ -107,21 +112,19 @@ exports.handler = async function(event) {
   console.log(`PDF recibido: ${(pdfBase64.length / 1024).toFixed(0)} KB`);
 
   try {
-    const response = await callGemini(GEMINI_KEY, pdfBase64);
+    const response = await callGemini(GEMINI_KEY, pdfBase64, categories);
 
     if (!response.ok) {
       const errText = await response.text();
       console.error(`Error ${response.status}:`, errText.substring(0, 300));
-
       const msgs = {
         400: 'El PDF no pudo ser procesado. Verificá que sea un estado de cuenta válido y no esté protegido con contraseña.',
-        401: 'API key inválida. Verificá GEMINI_API_KEY en Netlify → Site configuration → Environment variables.',
-        403: 'Sin acceso a la API de Gemini. Verificá tu API key en aistudio.google.com.',
-        404: 'Modelo de Gemini no disponible. Contactá al soporte.',
+        401: 'API key inválida. Verificá GEMINI_API_KEY en Netlify.',
+        403: 'Sin acceso a la API de Gemini.',
+        404: 'Modelo de Gemini no disponible.',
         429: 'Límite de Gemini alcanzado. Esperá unos minutos e intentá de nuevo.',
-        500: 'Error interno de Gemini. Intentá de nuevo en unos minutos.',
+        500: 'Error interno de Gemini. Intentá de nuevo.',
       };
-
       return {
         statusCode: 502,
         body: JSON.stringify({ error: msgs[response.status] || `Error Gemini ${response.status}` })
@@ -134,7 +137,7 @@ exports.handler = async function(event) {
     if (!text) {
       return {
         statusCode: 422,
-        body: JSON.stringify({ error: 'Gemini no encontró transacciones en el PDF. Verificá que sea un estado de cuenta bancario.' })
+        body: JSON.stringify({ error: 'Gemini no encontró transacciones en el PDF.' })
       };
     }
 
@@ -147,7 +150,7 @@ exports.handler = async function(event) {
       console.error('JSON parse error:', clean.substring(0, 400));
       return {
         statusCode: 422,
-        body: JSON.stringify({ error: 'No se pudo interpretar la respuesta de Gemini. Intentá de nuevo.' })
+        body: JSON.stringify({ error: 'No se pudo interpretar la respuesta. Intentá de nuevo.' })
       };
     }
 
@@ -155,13 +158,15 @@ exports.handler = async function(event) {
       return { statusCode: 422, body: JSON.stringify({ error: 'Formato de respuesta inesperado.' }) };
     }
 
+    // Filtrar entradas inválidas
     const valid = transactions.filter(t =>
       t.date && t.description &&
       typeof t.amount === 'number' && t.amount > 0 &&
       (t.type === 'income' || t.type === 'expense')
     );
 
-    console.log(`Éxito: ${valid.length} transacciones de ${transactions.length} totales`);
+    const withCategory = valid.filter(t => t.category && t.category !== '').length;
+    console.log(`Éxito: ${valid.length} transacciones, ${withCategory} con categoría asignada`);
 
     return {
       statusCode: 200,

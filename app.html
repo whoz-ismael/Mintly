@@ -1721,11 +1721,20 @@ async function handlePdfSelect(event) {
     const base64 = await fileToBase64(file);
     const acc = state.accounts.find(a => a.id === accountId);
 
+    // Preparar lista de categorías para que Gemini las asigne
+    const categoryList = state.categories
+      .filter(cat => !cat.parent_id) // solo categorías raíz para simplificar
+      .map(cat => ({ id: cat.id, name: cat.name, icon: cat.icon }));
+
     // Llamar a la Netlify Function (proxy seguro hacia Gemini)
     const response = await fetch('/.netlify/functions/parse-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pdfBase64: base64, currency: acc?.currency || 'USD' })
+      body: JSON.stringify({
+        pdfBase64: base64,
+        currency: acc?.currency || 'USD',
+        categories: categoryList
+      })
     });
 
     const result = await response.json();
@@ -1872,9 +1881,18 @@ async function confirmPdfImport(accountId) {
     const currency  = acc?.currency || 'USD';
     const amountUsd = await Rates.toUSD(amount, currency);
 
+    // Resolver category_id desde el nombre que Gemini asignó
+    let categoryId = null;
+    if (tx.category) {
+      const match = state.categories.find(cat =>
+        cat.name.toLowerCase() === tx.category.toLowerCase()
+      );
+      if (match) categoryId = match.id;
+    }
+
     const { error } = await DB.createTransaction({
       account_id:       accountId,
-      category_id:      null,
+      category_id:      categoryId,
       type:             tx.type,
       amount_native:    amount,
       currency,

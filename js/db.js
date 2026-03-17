@@ -70,7 +70,7 @@ const DB = {
   // ── CUENTAS ─────────────────────────────────────────────
   async getAccounts(includeArchived = false) {
     const { data: { user } } = await sb.auth.getUser();
-    let query = sb.from('accounts').select('*').eq('user_id', user.id).order('created_at');
+    let query = sb.from('accounts').select('*').eq('user_id', user.id).order('sort_order').order('created_at');
     if (!includeArchived) query = query.eq('is_archived', false);
     const { data } = await query;
     return data || [];

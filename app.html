@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#6366F1">
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>FinanzasJuntos</title>
@@ -3367,15 +3369,15 @@ async function saveEditBalance() {
   const diff = newBalance - _editBalanceCurrent;
   if (diff === 0) { closeModal('edit-balance-modal'); return; }
 
-  // Actualizar el balance en accounts
-  await sb.from('accounts').update({ balance: newBalance }).eq('id', _editBalanceAccId);
-
-  // Crear transacción de ajuste por la diferencia
   const currency  = _editBalanceCurrency;
   const amountAbs = Math.abs(diff);
   const amountUsd = await Rates.toUSD(amountAbs, currency);
+  const { data: { user } } = await sb.auth.getUser();
 
-  await DB.createTransaction({
+  // 1. Insertar transacción de ajuste SIN que toque el balance
+  //    (lo manejamos nosotros directamente)
+  await sb.from('transactions').insert({
+    user_id:       user.id,
     account_id:    _editBalanceAccId,
     category_id:   null,
     type:          diff > 0 ? 'income' : 'expense',
@@ -3385,11 +3387,10 @@ async function saveEditBalance() {
     rate_used:     currency !== 'USD' ? await Rates.getRate(currency) : 1,
     description:   'Ajuste de saldo',
     date:          new Date().toISOString().split('T')[0],
-    notes:         `Corrección manual: ${_editBalanceCurrent} → ${newBalance} ${currency}`
+    notes:         'Corrección manual de saldo'
   });
 
-  // Revertir el cambio de balance que createTransaction hizo
-  // (ya lo actualizamos directamente arriba, createTransaction lo volvería a mover)
+  // 2. Setear el balance correcto directamente (una sola operación, sin condiciones)
   await sb.from('accounts').update({ balance: newBalance }).eq('id', _editBalanceAccId);
 
   closeModal('edit-balance-modal');

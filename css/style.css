@@ -470,6 +470,7 @@ select.input { cursor: pointer; }
 }
 .toast.success { background: var(--green); color: white; }
 .toast.error   { background: var(--red);   color: white; }
+.drag-over { outline: 2px dashed var(--accent); outline-offset: 3px; border-radius: 16px; }
 
 /* ── Spinner ── */
 .spinner {

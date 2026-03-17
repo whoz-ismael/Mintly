@@ -1749,15 +1749,37 @@ async function renderAccountsList() {
     }
   }
 
-  // Total en USD
-  let totalUsd = 0;
+  // Activos: solo lo que tenés (sin deudas)
+  // Deudas: solo tarjetas de crédito
+  // Neto: activos − deudas
+  let totalAssets = 0;
+  let totalDebt   = 0;
   for (const acc of accounts) {
-    totalUsd += await Rates.toUSD(acc.balance, acc.currency);
+    const usd = await Rates.toUSD(acc.balance, acc.currency);
+    if (acc.type === 'credit') totalDebt += usd;
+    else totalAssets += usd;
   }
+  const totalNet   = totalAssets - totalDebt;
+  const netColor   = totalNet >= 0 ? 'var(--accent)' : 'var(--red)';
   html += `
-    <div style="padding:14px 16px;background:var(--accent-bg);border-radius:var(--radius-sm);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:13px;font-weight:600;color:var(--accent);">Mi total en USD</span>
-      <span style="font-size:18px;font-weight:700;color:var(--accent);">${Rates.format(totalUsd)}</span>
+    <div style="background:var(--accent-bg);border-radius:var(--radius-sm);margin-bottom:14px;overflow:hidden;">
+      <div style="display:flex;border-bottom:1px solid var(--accent-lt);">
+        <div style="flex:1;padding:12px 14px;">
+          <p style="font-size:10px;font-weight:600;color:var(--accent);margin-bottom:3px;">ACTIVOS</p>
+          <p style="font-size:16px;font-weight:700;color:var(--green);">${Rates.format(totalAssets)}</p>
+          <p style="font-size:10px;color:var(--text3);">Ahorros + efectivo</p>
+        </div>
+        <div style="width:1px;background:var(--accent-lt);"></div>
+        <div style="flex:1;padding:12px 14px;">
+          <p style="font-size:10px;font-weight:600;color:var(--accent);margin-bottom:3px;">DEUDAS</p>
+          <p style="font-size:16px;font-weight:700;color:var(--red);">${Rates.format(totalDebt)}</p>
+          <p style="font-size:10px;color:var(--text3);">Tarjetas de crédito</p>
+        </div>
+      </div>
+      <div style="padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">
+        <p style="font-size:12px;font-weight:600;color:var(--accent);">PATRIMONIO NETO</p>
+        <p style="font-size:17px;font-weight:700;color:${netColor};">${Rates.format(totalNet)}</p>
+      </div>
     </div>`;
 
   // ── Sección colapsable de cuentas de la pareja ──────────

@@ -1801,12 +1801,15 @@ async function renderAccountsList() {
       }
 
       html += `
-        <div class="cc-card" style="margin-bottom:12px;">
+        <div class="cc-card" data-acc-id="${acc.id}" style="margin-bottom:12px;">
           <div style="position:relative;z-index:1;">
             <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px;">
-              <div>
-                <p style="font-size:11px;color:rgba(255,255,255,0.6);font-weight:500;">Tarjeta de crédito</p>
-                <p style="font-size:18px;font-weight:700;">${acc.name}</p>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="drag-handle-icon" style="font-size:16px;opacity:0.5;cursor:grab;touch-action:none;">⠿</span>
+                <div>
+                  <p style="font-size:11px;color:rgba(255,255,255,0.6);font-weight:500;">Tarjeta de crédito</p>
+                  <p style="font-size:18px;font-weight:700;">${acc.name}</p>
+                </div>
               </div>
               <div style="display:flex;gap:6px;">
                 <button onclick="openAddInstallmentModal('${acc.id}','${acc.currency}')" style="font-size:10px;font-weight:600;background:rgba(255,255,255,0.15);border:none;color:white;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;">+ Cuotas</button>
@@ -1838,9 +1841,10 @@ async function renderAccountsList() {
       const typeIcons = { savings:'🏦', checking:'💳', cash:'💵' };
       const typeBg    = { savings:'var(--green-bg)', checking:'var(--blue-bg)', cash:'var(--amber-bg)' };
       html += `
-        <div class="card" style="padding:16px;margin-bottom:10px;">
+        <div class="card" data-acc-id="${acc.id}" style="padding:16px;margin-bottom:10px;">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div style="display:flex;align-items:center;gap:12px;">
+              <span class="drag-handle-icon" style="font-size:18px;color:var(--text3);cursor:grab;touch-action:none;">⠿</span>
               <div class="icon-box" style="background:${typeBg[acc.type]||'var(--surface2)'};">${typeIcons[acc.type]||'🏦'}</div>
               <div>
                 <p style="font-size:15px;font-weight:600;color:var(--text1);">${acc.name}</p>
@@ -2020,6 +2024,7 @@ async function renderAccountsList() {
   }
 
   el.innerHTML = html;
+  initAccountsDragDrop();
 }
 
 function togglePartnerAccounts(btn) {
@@ -4167,6 +4172,140 @@ async function confirmPayLoan() {
   populateAccountSelects();
   renderLoansTab();
   loadHomeScreen();
+}
+
+
+// ══ DRAG & DROP — REORDENAR CUENTAS ════════════════════════════
+
+function initAccountsDragDrop() {
+  const container = document.getElementById('tab-accounts');
+  if (!container) return;
+
+  // Seleccionar solo las tarjetas de cuentas (no el resumen de totales ni la sección pareja)
+  const cards = Array.from(container.children).filter(el =>
+    el.classList.contains('card') || el.classList.contains('cc-card')
+  );
+
+  let dragSrc  = null;
+  let touchSrc = null;
+  let touchClone = null;
+  let touchStartY = 0;
+
+  cards.forEach(card => {
+    card.setAttribute('draggable', 'true');
+    card.style.cursor = 'default';
+
+    // ── Desktop drag events ──
+    card.addEventListener('dragstart', e => {
+      dragSrc = card;
+      card.style.opacity = '0.5';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.style.opacity = '1';
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    });
+    card.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (card !== dragSrc) card.classList.add('drag-over');
+    });
+    card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      if (dragSrc && dragSrc !== card) {
+        // Insertar dragSrc antes o después de card según posición
+        const srcIdx  = Array.from(container.children).indexOf(dragSrc);
+        const destIdx = Array.from(container.children).indexOf(card);
+        if (srcIdx < destIdx) container.insertBefore(dragSrc, card.nextSibling);
+        else container.insertBefore(dragSrc, card);
+        card.classList.remove('drag-over');
+        saveAccountsOrder(container);
+      }
+    });
+
+    // ── Touch events (mobile) ──
+    const handle = card.querySelector('.drag-handle-icon');
+    if (!handle) return;
+
+    handle.addEventListener('touchstart', e => {
+      e.preventDefault();
+      touchSrc    = card;
+      touchStartY = e.touches[0].clientY;
+
+      // Crear clon visual
+      touchClone = card.cloneNode(true);
+      touchClone.style.cssText = `
+        position:fixed; left:${card.getBoundingClientRect().left}px;
+        top:${card.getBoundingClientRect().top}px;
+        width:${card.offsetWidth}px; opacity:0.85;
+        z-index:9999; pointer-events:none;
+        box-shadow:0 8px 24px rgba(0,0,0,0.25);
+        border-radius:16px; transform:scale(1.02);
+        transition:none;
+      `;
+      document.body.appendChild(touchClone);
+      card.style.opacity = '0.4';
+    }, { passive: false });
+
+    handle.addEventListener('touchmove', e => {
+      e.preventDefault();
+      if (!touchClone || !touchSrc) return;
+      const touch = e.touches[0];
+      const dy    = touch.clientY - touchStartY;
+      touchClone.style.top = (touchSrc.getBoundingClientRect().top + dy) + 'px';
+
+      // Encontrar el card sobre el que está el dedo
+      touchClone.style.display = 'none';
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      touchClone.style.display = '';
+      const target = el?.closest('.card, .cc-card');
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      if (target && target !== touchSrc && container.contains(target)) {
+        target.classList.add('drag-over');
+      }
+    }, { passive: false });
+
+    handle.addEventListener('touchend', e => {
+      if (!touchSrc) return;
+      const touch = e.changedTouches[0];
+      touchClone?.remove();
+      touchClone = null;
+      touchSrc.style.opacity = '1';
+
+      touchClone = null;
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+      const el     = document.elementFromPoint(touch.clientX, touch.clientY);
+      const target = el?.closest('.card, .cc-card');
+      if (target && target !== touchSrc && container.contains(target)) {
+        const srcIdx  = Array.from(container.children).indexOf(touchSrc);
+        const destIdx = Array.from(container.children).indexOf(target);
+        if (srcIdx < destIdx) container.insertBefore(touchSrc, target.nextSibling);
+        else container.insertBefore(touchSrc, target);
+        saveAccountsOrder(container);
+      }
+      touchSrc = null;
+    });
+  });
+}
+
+async function saveAccountsOrder(container) {
+  // Leer IDs en el orden visual actual (solo cards con data-id)
+  const orderedIds = Array.from(container.children)
+    .map(el => el.dataset.accId)
+    .filter(Boolean);
+
+  if (!orderedIds.length) return;
+
+  // Actualizar sort_order en Supabase
+  await Promise.all(orderedIds.map((id, idx) =>
+    sb.from('accounts').update({ sort_order: idx + 1 }).eq('id', id)
+  ));
+
+  // Actualizar state.accounts para que quede en el mismo orden
+  state.accounts = orderedIds.map(id => state.accounts.find(a => a.id === id)).filter(Boolean);
+  showToast('Orden guardado ✓', '');
 }
 
 // ══ HELPERS ══════════════════════════════════════════════════

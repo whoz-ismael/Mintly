@@ -1246,7 +1246,10 @@ async function loadHomeScreen() {
     if (acc.type === 'credit') patrimony -= usd;
     else patrimony += usd;
   }
-  document.getElementById('home-patrimony').textContent = Rates.format(patrimony);
+  document.getElementById('home-patrimony').textContent =
+    (patrimony < 0 ? '-' : '') + Rates.format(Math.abs(patrimony));
+  document.getElementById('home-patrimony').style.color =
+    patrimony < 0 ? 'var(--red)' : 'var(--text1)';
   const patrimonySub = state.accounts.length === 0
     ? 'Agrega tus cuentas para ver tu patrimonio'
     : `${state.accounts.length} cuenta${state.accounts.length > 1 ? 's' : ''} · en USD`;
@@ -2618,7 +2621,10 @@ async function loadCoupleView() {
   }
   const totalPatrimony = myPatrimony + partnerPatrimony;
 
-  document.getElementById('couple-patrimony').textContent = Rates.format(totalPatrimony);
+  document.getElementById('couple-patrimony').textContent =
+    (totalPatrimony < 0 ? '-' : '') + Rates.format(Math.abs(totalPatrimony));
+  document.getElementById('couple-patrimony').style.color =
+    totalPatrimony < 0 ? 'var(--red)' : 'var(--text1)';
   document.getElementById('couple-patrimony-sub').textContent =
     `${myAccounts.length + (partnerAccounts?.length || 0)} cuentas en total · en USD`;
 

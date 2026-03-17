@@ -154,6 +154,14 @@
           <div style="height:1px;background:var(--border);margin-bottom:14px;"></div>
           <!-- Desglose por persona -->
           <div style="display:flex;gap:10px;" id="couple-person-breakdown"></div>
+          <!-- Cuentas por cobrar combinadas -->
+          <div id="couple-receivables" style="display:none;margin-top:12px;background:var(--green-bg);border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:14px;">🤝</span>
+              <p style="font-size:11px;font-weight:600;color:var(--green);">CUENTAS POR COBRAR</p>
+            </div>
+            <p style="font-size:15px;font-weight:700;color:var(--green);" id="couple-receivables-amount">$0.00</p>
+          </div>
         </div>
         <!-- Flujo del mes combinado -->
         <div class="card" style="padding:18px;margin-bottom:14px;">
@@ -2727,6 +2735,24 @@ async function loadCoupleView() {
     totalPatrimony < 0 ? 'var(--red)' : 'var(--text1)';
   document.getElementById('couple-patrimony-sub').textContent =
     `${myAccounts.length + (partnerAccounts?.length || 0)} cuentas en total · en USD`;
+
+  // Cuentas por cobrar combinadas
+  const { data: { user: me } } = await sb.auth.getUser();
+  const [{ data: myLent }, { data: partnerLent }] = await Promise.all([
+    sb.from('money_lent').select('amount_usd').eq('user_id', me.id).in('status', ['pending','partial']),
+    sb.from('money_lent').select('amount_usd').eq('user_id', partnerId).in('status', ['pending','partial'])
+  ]);
+  const myReceivable      = (myLent      || []).reduce((s, r) => s + parseFloat(r.amount_usd || 0), 0);
+  const partnerReceivable = (partnerLent || []).reduce((s, r) => s + parseFloat(r.amount_usd || 0), 0);
+  const totalReceivable   = myReceivable + partnerReceivable;
+  const recEl  = document.getElementById('couple-receivables');
+  const recAmt = document.getElementById('couple-receivables-amount');
+  if (totalReceivable > 0) {
+    recEl.style.display  = 'flex';
+    recAmt.textContent   = Rates.format(totalReceivable);
+  } else {
+    recEl.style.display  = 'none';
+  }
 
   // Desglose por persona
   const myColor      = '#6366F1';

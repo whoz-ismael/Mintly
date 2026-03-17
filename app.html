@@ -989,6 +989,24 @@
   </div>
 </div>
 
+<!-- Modal: editar saldo de cuenta -->
+<div class="modal-overlay" id="edit-balance-modal" onclick="closeModalClick(event,'edit-balance-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:4px;">Editar saldo</h3>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:16px;" id="edit-balance-acc-name"></p>
+    <div class="form-group">
+      <label class="input-label">Saldo actual correcto</label>
+      <input id="edit-balance-value" class="input" type="number" step="0.01" placeholder="0.00">
+    </div>
+    <div style="background:var(--amber-bg);border-radius:12px;padding:12px;margin-bottom:16px;">
+      <p style="font-size:12px;color:var(--amber);font-weight:600;">⚠ Esto ajustará el saldo directamente</p>
+      <p style="font-size:11px;color:var(--text2);margin-top:3px;">Se creará una transacción de ajuste por la diferencia para mantener el historial consistente.</p>
+    </div>
+    <button class="btn btn-primary" onclick="saveEditBalance()">Guardar saldo</button>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -1574,7 +1592,10 @@ async function renderAccountsList() {
             <div style="text-align:right;">
               <p style="font-size:17px;font-weight:700;color:var(--green);">${Rates.format(acc.balance, acc.currency)}</p>
               ${acc.currency !== 'USD' ? `<p style="font-size:11px;color:var(--text3);">≈ ${Rates.format(balanceUsd)}</p>` : ''}
-              <button onclick="openDeleteAccountModal('${acc.id}','${acc.name}')" style="margin-top:6px;font-size:11px;font-weight:600;background:var(--red-bg);color:var(--red);border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;">🗑 Eliminar</button>
+              <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end;">
+                <button onclick="openEditBalanceModal('${acc.id}','${acc.name}',${acc.balance},'${acc.currency}')" style="font-size:11px;font-weight:600;background:var(--surface2);color:var(--text2);border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;">✏ Saldo</button>
+                <button onclick="openDeleteAccountModal('${acc.id}','${acc.name}')" style="font-size:11px;font-weight:600;background:var(--red-bg);color:var(--red);border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;">🗑</button>
+              </div>
             </div>
           </div>
         </div>`;
@@ -1997,12 +2018,29 @@ async function saveAccount() {
     return;
   }
 
-  // Cerrar modal PRIMERO, luego actualizar estado
+  // Si tiene saldo inicial > 0 crear transacción de apertura
+  // (para que el balance sea rastreable y no quede huérfano)
+  if (balance > 0 && data && type !== 'credit') {
+    await DB.createTransaction({
+      account_id:    data.id,
+      category_id:   null,
+      type:          'income',
+      amount_native: balance,
+      currency,
+      amount_usd:    await Rates.toUSD(balance, currency),
+      rate_used:     currency !== 'USD' ? await Rates.getRate(currency) : 1,
+      description:   'Saldo inicial',
+      date:          new Date().toISOString().split('T')[0],
+      notes:         'Saldo de apertura de cuenta'
+    });
+  }
+
   document.getElementById('add-account-modal').classList.remove('open');
   showToast('Cuenta creada ✓', 'success');
   state.accounts = await DB.getAccounts();
   populateAccountSelects();
   renderAccountsList();
+  loadHomeScreen();
 }
 
 // Guardar categoría de presupuesto
@@ -3304,6 +3342,62 @@ async function deleteBudget(budgetId) {
   if (error) { showToast('Error al eliminar', 'error'); return; }
   showToast('Presupuesto eliminado', '');
   loadBudgetScreen();
+}
+
+
+// ══ EDITAR SALDO DE CUENTA ════════════════════════════════════
+
+let _editBalanceAccId   = null;
+let _editBalanceCurrent = 0;
+let _editBalanceCurrency = 'USD';
+
+function openEditBalanceModal(accId, accName, currentBalance, currency) {
+  _editBalanceAccId    = accId;
+  _editBalanceCurrent  = parseFloat(currentBalance) || 0;
+  _editBalanceCurrency = currency;
+  document.getElementById('edit-balance-acc-name').textContent = accName + ' · ' + currency;
+  document.getElementById('edit-balance-value').value = _editBalanceCurrent;
+  openModal('edit-balance-modal');
+}
+
+async function saveEditBalance() {
+  const newBalance = parseFloat(document.getElementById('edit-balance-value').value);
+  if (isNaN(newBalance)) { showToast('Ingresá un monto válido', 'error'); return; }
+
+  const diff = newBalance - _editBalanceCurrent;
+  if (diff === 0) { closeModal('edit-balance-modal'); return; }
+
+  // Actualizar el balance en accounts
+  await sb.from('accounts').update({ balance: newBalance }).eq('id', _editBalanceAccId);
+
+  // Crear transacción de ajuste por la diferencia
+  const currency  = _editBalanceCurrency;
+  const amountAbs = Math.abs(diff);
+  const amountUsd = await Rates.toUSD(amountAbs, currency);
+
+  await DB.createTransaction({
+    account_id:    _editBalanceAccId,
+    category_id:   null,
+    type:          diff > 0 ? 'income' : 'expense',
+    amount_native: amountAbs,
+    currency,
+    amount_usd:    amountUsd,
+    rate_used:     currency !== 'USD' ? await Rates.getRate(currency) : 1,
+    description:   'Ajuste de saldo',
+    date:          new Date().toISOString().split('T')[0],
+    notes:         `Corrección manual: ${_editBalanceCurrent} → ${newBalance} ${currency}`
+  });
+
+  // Revertir el cambio de balance que createTransaction hizo
+  // (ya lo actualizamos directamente arriba, createTransaction lo volvería a mover)
+  await sb.from('accounts').update({ balance: newBalance }).eq('id', _editBalanceAccId);
+
+  closeModal('edit-balance-modal');
+  showToast('Saldo actualizado ✓', 'success');
+  state.accounts = await DB.getAccounts();
+  populateAccountSelects();
+  renderAccountsList();
+  loadHomeScreen();
 }
 
 // ══ HELPERS ══════════════════════════════════════════════════

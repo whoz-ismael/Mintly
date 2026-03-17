@@ -547,10 +547,31 @@ window.saveAccount = async function() {
   var { data, error } = await sb.from('accounts').insert(acc).select().single();
   if (error) { console.error('Error guardando cuenta:', error.message); showToast('Error al guardar', 'err'); return; }
 
+  // Crear transacción de saldo inicial si tiene balance > 0
+  if (balance > 0 && data && type !== 'credit') {
+    var rateUsed = 1;
+    if (currency !== 'USD') {
+      try { rateUsed = await Rates.getRate(currency); } catch(e) {}
+    }
+    var amountUsd = balance * rateUsed;
+    await sb.from('transactions').insert({
+      user_id:       userId,
+      account_id:    data.id,
+      category_id:   null,
+      type:          'income',
+      amount_native: balance,
+      currency:      currency,
+      amount_usd:    amountUsd,
+      rate_used:     rateUsed,
+      description:   'Saldo inicial',
+      date:          new Date().toISOString().split('T')[0],
+      notes:         'Saldo de apertura de cuenta'
+    });
+  }
+
   state.accounts.push(data);
   renderAccList();
   document.getElementById('acc-modal').classList.remove('open');
-  // Limpiar
   document.getElementById('m-name').value = '';
   document.getElementById('m-balance').value = '';
   showToast(name + ' agregada ✓', 'ok');

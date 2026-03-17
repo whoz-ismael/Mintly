@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#6366F1">
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="apple-touch-icon" href="logo.png">
+  <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>DuoBudget</title>
@@ -351,7 +352,7 @@
         </div>
         <div class="toggle on" id="credit-reminder-toggle" onclick="toggleCreditReminder(this)"></div>
       </div>
-      <div class="list-row" onclick="Auth.signOut()" style="border-bottom:none;">
+<div class="list-row" onclick="Auth.signOut()" style="border-bottom:none;">
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="icon-box" style="background:var(--red-bg);">🚪</div>
           <p style="font-size:15px;font-weight:500;color:var(--red);">Cerrar sesión</p>
@@ -984,6 +985,13 @@
       <input id="lent-date" class="input" type="date">
     </div>
     <div class="form-group">
+      <label class="input-label">Cuenta de origen (opcional)</label>
+      <select id="lent-account" class="input">
+        <option value="">Sin cuenta — solo registrar</option>
+      </select>
+      <p style="font-size:11px;color:var(--text3);margin-top:4px;">Si seleccionás una cuenta, el monto se descuenta automáticamente de su saldo.</p>
+    </div>
+    <div class="form-group">
       <label class="input-label">Nota (opcional)</label>
       <input id="lent-note" class="input" placeholder="Ej: Para la mudanza">
     </div>
@@ -1006,6 +1014,51 @@
       <p style="font-size:11px;color:var(--text2);margin-top:3px;">Se creará una transacción de ajuste por la diferencia para mantener el historial consistente.</p>
     </div>
     <button class="btn btn-primary" onclick="saveEditBalance()">Guardar saldo</button>
+  </div>
+</div>
+
+<!-- Modal: nuevo plan de cuotas -->
+<div class="modal-overlay" id="add-installment-modal" onclick="closeModalClick(event,'add-installment-modal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="drag-handle"></div>
+    <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:4px;">Nuevo plan de cuotas</h3>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:16px;" id="installment-card-name"></p>
+    <div class="form-group">
+      <label class="input-label">Nombre de la compra</label>
+      <input id="inst-name" class="input" placeholder="Ej: iPhone 16 Pro, MacBook Air...">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Monto total</label>
+        <input id="inst-total" class="input" type="number" placeholder="1200.00" oninput="calcInstallment()">
+      </div>
+      <div class="form-group">
+        <label class="input-label">Total de cuotas</label>
+        <input id="inst-total-n" class="input" type="number" placeholder="12" min="1" oninput="calcInstallment()">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label class="input-label">Cuotas pagadas</label>
+        <input id="inst-paid-n" class="input" type="number" placeholder="0" min="0" oninput="calcInstallment()">
+      </div>
+      <div class="form-group">
+        <label class="input-label">Tasa de interés (%)</label>
+        <input id="inst-rate" class="input" type="number" placeholder="0" step="0.1" value="0">
+      </div>
+    </div>
+    <!-- Resumen calculado -->
+    <div id="inst-summary" style="display:none;background:var(--surface2);border-radius:12px;padding:12px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:12px;color:var(--text2);">Cuota mensual</span>
+        <span style="font-size:13px;font-weight:700;color:var(--text1);" id="inst-monthly-display">$0.00</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--text2);">Pendiente</span>
+        <span style="font-size:13px;font-weight:700;color:var(--red);" id="inst-remaining-display">$0.00</span>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveInstallment()">Agregar plan</button>
   </div>
 </div>
 
@@ -1331,6 +1384,26 @@ async function loadBudgetScreen() {
   const budgets  = await DB.getBudgets(month, year);
   const spending = await DB.getSpendingByCategory(month, year);
 
+  // Gastos de la pareja por categoría
+  let partnerSpending = {};
+  let partnerName = null;
+  if (state.couple) {
+    const { data: { user } } = await sb.auth.getUser();
+    const partnerId = state.couple.user1_id === user.id ? state.couple.user2_id : state.couple.user1_id;
+    partnerName = (state.couple.user1_id === user.id ? state.couple.user2?.name : state.couple.user1?.name)?.split(' ')[0] || 'Pareja';
+    const lastDay = new Date(year, month, 0).getDate();
+    const from = `${year}-${String(month).padStart(2,'0')}-01`;
+    const to   = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    const { data: pTxs } = await sb.from('transactions')
+      .select('category_id, amount_usd')
+      .eq('user_id', partnerId).eq('type', 'expense')
+      .gte('date', from).lte('date', to);
+    (pTxs || []).forEach(t => {
+      const key = t.category_id || 'uncategorized';
+      partnerSpending[key] = (partnerSpending[key] || 0) + parseFloat(t.amount_usd || 0);
+    });
+  }
+
   // Agrupar por padre / hijo
   const cats = state.categories;
   const rootCats = cats.filter(c => !c.parent_id);
@@ -1358,10 +1431,15 @@ async function loadBudgetScreen() {
   container.innerHTML = rootCats.map(cat => {
     const catBudget = budgets.find(b => b.category_id === cat.id);
     if (!catBudget) return '';
-    const spent = spending[cat.id] || 0;
-    const pct   = catBudget ? Math.min((spent / catBudget.amount) * 100, 100) : 0;
-    const color = pct >= 100 ? 'fill-red' : pct >= 80 ? 'fill-amber' : 'fill-green';
-    const warn  = pct >= 100 ? '⚠ ' : '';
+    const mySpent      = spending[cat.id] || 0;
+    const partnerSpent = partnerSpending[cat.id] || 0;
+    const totalSpent   = mySpent + partnerSpent;
+    const spent        = mySpent; // para compatibilidad con el resto
+    const pct          = catBudget ? Math.min((totalSpent / catBudget.amount) * 100, 100) : 0;
+    const myPct        = catBudget ? Math.min((mySpent / catBudget.amount) * 100, 100) : 0;
+    const partnerPct   = catBudget ? Math.min((partnerSpent / catBudget.amount) * 100, 100) : 0;
+    const color        = pct >= 100 ? 'fill-red' : pct >= 80 ? 'fill-amber' : 'fill-green';
+    const warn         = pct >= 100 ? '⚠ ' : '';
 
     // Subcategorías con presupuesto
     const subcats = cats.filter(c => c.parent_id === cat.id);
@@ -1398,12 +1476,27 @@ async function loadBudgetScreen() {
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
               <p style="font-size:14px;font-weight:600;color:var(--text1);">${cat.name}</p>
               <div style="display:flex;align-items:center;gap:6px;">
-                <span style="font-size:12px;color:${pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--text3)'};">${warn}${Rates.format(spent)} / ${Rates.format(catBudget.amount)}</span>
+                <span style="font-size:12px;color:${pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--text3)'};">${warn}${Rates.format(totalSpent)} / ${Rates.format(catBudget.amount)}</span>
                 <button onclick="event.stopPropagation();openEditBudget('${catBudget.id}','${cat.name}',${catBudget.amount},'${catBudget.currency}')" style="background:var(--surface2);border:none;border-radius:8px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text2);">✏</button>
                 <button onclick="event.stopPropagation();deleteBudget('${catBudget.id}')" style="background:var(--red-bg);border:none;border-radius:8px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--red);">✕</button>
               </div>
             </div>
-            <div class="progress-bar"><div class="progress-fill ${color}" style="width:${pct}%"></div></div>
+            ${partnerName && partnerSpent > 0 ? `
+            <div style="margin-bottom:3px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                <span style="font-size:10px;color:#6366F1;font-weight:600;">Tú</span>
+                <span style="font-size:10px;color:#6366F1;">${Rates.format(mySpent)}</span>
+              </div>
+              <div class="progress-bar" style="height:6px;"><div style="height:100%;width:${myPct}%;background:#6366F1;border-radius:999px;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                <span style="font-size:10px;color:#EC4899;font-weight:600;">${partnerName}</span>
+                <span style="font-size:10px;color:#EC4899;">${Rates.format(partnerSpent)}</span>
+              </div>
+              <div class="progress-bar" style="height:6px;"><div style="height:100%;width:${partnerPct}%;background:#EC4899;border-radius:999px;"></div></div>
+            </div>
+            ` : `<div class="progress-bar"><div class="progress-fill ${color}" style="width:${myPct}%"></div></div>`}
           </div>
         </div>
         ${subcatBudgets.length > 0 ? `<div class="cat-subcats">${subcatHTML}</div>` : ''}
@@ -1549,7 +1642,53 @@ async function renderAccountsList() {
     if (acc.type === 'credit') {
       const used = acc.balance;
       const util = acc.credit_limit > 0 ? (used / acc.credit_limit) * 100 : 0;
-      const utilColor = util >= 80 ? 'var(--red)' : util >= 60 ? 'var(--amber)' : 'var(--green)';
+
+      // Cargar planes de cuotas de esta tarjeta
+      const { data: plans } = await sb.from('installment_plans')
+        .select('*').eq('account_id', acc.id).eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      const totalInstallments = (plans || []).reduce((sum, p) => sum + parseFloat(p.remaining_amount || 0), 0);
+      const freeDebt = Math.max(0, acc.balance - totalInstallments);
+
+      // Construir HTML de planes de cuotas
+      let plansHtml = '';
+      if (plans && plans.length > 0) {
+        plansHtml = `
+          <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.15);padding-top:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span style="font-size:11px;color:rgba(255,255,255,0.7);font-weight:600;">PLANES DE CUOTAS</span>
+              <button onclick="openAddInstallmentModal('${acc.id}','${acc.currency}')" style="font-size:10px;font-weight:600;background:rgba(255,255,255,0.15);border:none;color:white;padding:3px 8px;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;">+ Nuevo</button>
+            </div>
+            ${(plans || []).map(p => {
+              const paid    = parseFloat(p.total_amount) - parseFloat(p.remaining_amount);
+              const pct     = parseFloat(p.total_amount) > 0 ? Math.min((paid / p.total_amount) * 100, 100) : 0;
+              const paidStr = p.installments_paid + '/' + p.total_installments + ' cuotas';
+              return `<div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px;">
+                  <div>
+                    <p style="font-size:13px;font-weight:600;color:white;">${p.name}</p>
+                    <p style="font-size:10px;color:rgba(255,255,255,0.6);">${paidStr} · ${p.interest_rate > 0 ? p.interest_rate + '% interés' : '0% interés'}</p>
+                  </div>
+                  <div style="text-align:right;">
+                    <p style="font-size:12px;font-weight:700;color:#FCA5A5;">${Rates.format(p.remaining_amount, acc.currency)}</p>
+                    <p style="font-size:10px;color:rgba(255,255,255,0.6);">${Rates.format(p.monthly_payment, acc.currency)}/mes</p>
+                  </div>
+                </div>
+                <div style="height:4px;background:rgba(255,255,255,0.15);border-radius:999px;overflow:hidden;">
+                  <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#86EFAC,#6EE7B7);border-radius:999px;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                  <span style="font-size:10px;color:rgba(255,255,255,0.5);">${pct.toFixed(0)}% pagado</span>
+                  <button onclick="deleteInstallment('${p.id}','${acc.id}',${p.remaining_amount})" style="font-size:10px;color:rgba(255,100,100,0.8);background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">Eliminar</button>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>`;
+      }
+
+      const hasPlans = plans && plans.length > 0;
+
       html += `
         <div class="cc-card" style="margin-bottom:12px;">
           <div style="position:relative;z-index:1;">
@@ -1559,12 +1698,17 @@ async function renderAccountsList() {
                 <p style="font-size:18px;font-weight:700;">${acc.name}</p>
               </div>
               <div style="display:flex;gap:6px;">
+                <button onclick="openAddInstallmentModal('${acc.id}','${acc.currency}')" style="font-size:10px;font-weight:600;background:rgba(255,255,255,0.15);border:none;color:white;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;">+ Cuotas</button>
                 <button onclick="openCreditLimitModal('${acc.id}')" style="font-size:10px;font-weight:600;background:rgba(255,255,255,0.15);border:none;color:white;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;">✏ Límite</button>
-                <button onclick="openDeleteAccountModal('${acc.id}','${acc.name}')" style="font-size:10px;font-weight:600;background:rgba(239,68,68,0.3);border:none;color:#FCA5A5;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;">🗑 Eliminar</button>
+                <button onclick="openDeleteAccountModal('${acc.id}','${acc.name}')" style="font-size:10px;font-weight:600;background:rgba(239,68,68,0.3);border:none;color:#FCA5A5;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;">🗑</button>
               </div>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
-              <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Adeudado</p><p style="font-size:17px;font-weight:700;color:#FCA5A5;">${Rates.format(acc.balance, acc.currency)}</p></div>
+              <div>
+                <p style="font-size:10px;color:rgba(255,255,255,0.6);">Adeudado</p>
+                <p style="font-size:17px;font-weight:700;color:#FCA5A5;">${Rates.format(acc.balance, acc.currency)}</p>
+                ${hasPlans ? `<p style="font-size:10px;color:rgba(255,255,255,0.5);">Libre: ${Rates.format(freeDebt, acc.currency)}</p>` : ''}
+              </div>
               <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Disponible</p><p style="font-size:17px;font-weight:700;color:#86EFAC;">${Rates.format(acc.credit_limit - acc.balance, acc.currency)}</p></div>
               <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Límite</p><p style="font-size:17px;font-weight:700;">${Rates.format(acc.credit_limit, acc.currency)}</p></div>
             </div>
@@ -1576,6 +1720,7 @@ async function renderAccountsList() {
               <div class="credit-util-bar"><div class="credit-util-fill" style="width:${util}%;"></div></div>
             </div>
             ${acc.currency !== 'USD' ? `<p style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:8px;">≈ ${Rates.format(balanceUsd)} USD disponibles</p>` : ''}
+            ${plansHtml}
           </div>
         </div>`;
     } else {
@@ -1633,24 +1778,62 @@ async function renderAccountsList() {
       partnerTotal += acc.type === 'credit' ? -usd : usd;
 
       if (acc.type === 'credit') {
-        const used = acc.balance;
-        const util = acc.credit_limit > 0 ? (used / acc.credit_limit) * 100 : 0;
+        const util = acc.credit_limit > 0 ? (acc.balance / acc.credit_limit) * 100 : 0;
+
+        // Cargar planes de cuotas de esta tarjeta
+        const { data: plans } = await sb.from('installment_plans')
+          .select('*').eq('account_id', acc.id).eq('is_active', true);
+        const totalInst = (plans || []).reduce((s, p) => s + parseFloat(p.remaining_amount || 0), 0);
+        const freeDebt  = Math.max(0, acc.balance - totalInst);
+        const hasPlans  = plans && plans.length > 0;
+
+        // HTML de planes (solo lectura para la pareja)
+        let plansHtml = '';
+        if (hasPlans) {
+          plansHtml = `
+            <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,0.15);padding-top:10px;">
+              <p style="font-size:11px;color:rgba(255,255,255,0.7);font-weight:600;margin-bottom:6px;">PLANES DE CUOTAS</p>
+              ${(plans || []).map(p => {
+                const paid = parseFloat(p.total_amount) - parseFloat(p.remaining_amount);
+                const pct  = parseFloat(p.total_amount) > 0 ? Math.min((paid / p.total_amount) * 100, 100) : 0;
+                return `<div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:10px;margin-bottom:6px;">
+                  <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:5px;">
+                    <div>
+                      <p style="font-size:12px;font-weight:600;color:white;">${p.name}</p>
+                      <p style="font-size:10px;color:rgba(255,255,255,0.6);">${p.installments_paid}/${p.total_installments} cuotas · ${p.interest_rate > 0 ? p.interest_rate + '% interés' : '0% interés'}</p>
+                    </div>
+                    <div style="text-align:right;">
+                      <p style="font-size:12px;font-weight:700;color:#FCA5A5;">${Rates.format(p.remaining_amount, acc.currency)}</p>
+                      <p style="font-size:10px;color:rgba(255,255,255,0.6);">${Rates.format(p.monthly_payment, acc.currency)}/mes</p>
+                    </div>
+                  </div>
+                  <div style="height:4px;background:rgba(255,255,255,0.15);border-radius:999px;overflow:hidden;">
+                    <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#86EFAC,#6EE7B7);border-radius:999px;"></div>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>`;
+        }
+
         partnerHtml += `
           <div style="background:linear-gradient(135deg,#1e1b4b,#312e81,#4338ca);border-radius:16px;padding:16px;margin-bottom:8px;color:white;">
-            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
-              <div>
-                <p style="font-size:10px;color:rgba(255,255,255,0.6);">Tarjeta de crédito</p>
-                <p style="font-size:16px;font-weight:700;">${acc.name}</p>
-              </div>
+            <div style="margin-bottom:10px;">
+              <p style="font-size:10px;color:rgba(255,255,255,0.6);">Tarjeta de crédito</p>
+              <p style="font-size:16px;font-weight:700;">${acc.name}</p>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-              <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Adeudado</p><p style="font-size:15px;font-weight:700;color:#FCA5A5;">${Rates.format(acc.balance, acc.currency)}</p></div>
+              <div>
+                <p style="font-size:10px;color:rgba(255,255,255,0.6);">Adeudado</p>
+                <p style="font-size:15px;font-weight:700;color:#FCA5A5;">${Rates.format(acc.balance, acc.currency)}</p>
+                ${hasPlans ? `<p style="font-size:10px;color:rgba(255,255,255,0.5);">Libre: ${Rates.format(freeDebt, acc.currency)}</p>` : ''}
+              </div>
               <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Disponible</p><p style="font-size:15px;font-weight:700;color:#86EFAC;">${Rates.format(acc.credit_limit - acc.balance, acc.currency)}</p></div>
               <div><p style="font-size:10px;color:rgba(255,255,255,0.6);">Límite</p><p style="font-size:15px;font-weight:700;">${Rates.format(acc.credit_limit, acc.currency)}</p></div>
             </div>
             <div style="height:5px;background:rgba(255,255,255,0.2);border-radius:999px;overflow:hidden;">
               <div style="height:100%;width:${Math.min(util,100)}%;background:linear-gradient(90deg,#86EFAC,#FCA5A5);border-radius:999px;"></div>
             </div>
+            ${plansHtml}
           </div>`;
       } else {
         const typeIcons = { savings:'🏦', checking:'💳', cash:'💵' };
@@ -2579,16 +2762,37 @@ function selectGoalIcon(el) {
 }
 
 async function loadGoals() {
-  const goals = await DB.getGoals();
+  // Cargar mis metas + las de la pareja si están vinculados
+  let goals = await DB.getGoals();
+  let partnerGoals = [];
+  let partnerGoalName = null;
+
+  if (state.couple) {
+    const { data: { user } } = await sb.auth.getUser();
+    const partnerId = state.couple.user1_id === user.id ? state.couple.user2_id : state.couple.user1_id;
+    partnerGoalName = (state.couple.user1_id === user.id ? state.couple.user2?.name : state.couple.user1?.name)?.split(' ')[0] || 'Tu pareja';
+    const { data: pGoals } = await sb.from('savings_goals')
+      .select('*').eq('user_id', partnerId).eq('is_completed', false);
+    partnerGoals = pGoals || [];
+  }
+
+  // Combinar: marcar cuáles son de la pareja
+  const allGoals = [
+    ...goals.map(g => ({ ...g, isPartner: false })),
+    ...partnerGoals.map(g => ({ ...g, isPartner: true, partnerName: partnerGoalName }))
+  ];
+
   const el = document.getElementById('goals-container');
 
   // Subtitle con resumen
-  const completed = goals.filter(g => g.is_completed).length;
+  const myCount   = goals.length;
+  const pCount    = partnerGoals.length;
+  const totalCount= myCount + pCount;
   document.getElementById('metas-subtitle').textContent =
-    goals.length === 0 ? 'Sin metas aún' :
-    `${goals.length} meta${goals.length > 1 ? 's' : ''} activa${goals.length > 1 ? 's' : ''}${completed ? ` · ${completed} completada${completed > 1 ? 's' : ''}` : ''}`;
+    totalCount === 0 ? 'Sin metas aún' :
+    `${myCount} propia${myCount !== 1 ? 's' : ''}${pCount > 0 ? ` · ${pCount} de ${partnerGoalName}` : ''}`;
 
-  if (goals.length === 0) {
+  if (allGoals.length === 0) {
     el.innerHTML = `
       <div class="empty-state">
         <span class="empty-icon">🎯</span>
@@ -2599,7 +2803,7 @@ async function loadGoals() {
   }
 
   let html = '';
-  for (const goal of goals) {
+  for (const goal of allGoals) {
     const target  = parseFloat(goal.target_amount);
     const current = parseFloat(goal.current_amount) || 0;
     const pct     = target > 0 ? Math.min((current / target) * 100, 100) : 0;
@@ -2629,17 +2833,17 @@ async function loadGoals() {
     }
 
     html += `
-      <div style="background:var(--surface);border-radius:20px;padding:18px;margin-bottom:12px;box-shadow:var(--shadow);">
+      <div style="background:var(--surface);border-radius:20px;padding:18px;margin-bottom:12px;box-shadow:var(--shadow);${goal.isPartner ? 'border:1.5px solid #EC4899;' : ''}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
           <div style="display:flex;align-items:center;gap:12px;">
-            <div style="width:46px;height:46px;border-radius:14px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;font-size:22px;">${goal.icon || '🎯'}</div>
+            <div style="width:46px;height:46px;border-radius:14px;background:${goal.isPartner ? '#FDF2F8' : 'var(--accent-bg)'};display:flex;align-items:center;justify-content:center;font-size:22px;">${goal.icon || '🎯'}</div>
             <div>
               <p style="font-size:16px;font-weight:700;color:var(--text1);">${goal.name}</p>
-              ${deadlineStr ? `<p style="font-size:11px;color:var(--text3);">Límite: ${deadlineStr}</p>` : '<p style="font-size:11px;color:var(--text3);">Sin fecha límite</p>'}
+              ${goal.isPartner ? `<p style="font-size:11px;color:#EC4899;font-weight:600;">Meta de ${goal.partnerName}</p>` : (deadlineStr ? `<p style="font-size:11px;color:var(--text3);">Límite: ${deadlineStr}</p>` : '<p style="font-size:11px;color:var(--text3);">Sin fecha límite</p>')}
             </div>
           </div>
           <div style="text-align:right;">
-            <p style="font-size:18px;font-weight:700;color:var(--accent);">${pct.toFixed(0)}%</p>
+            <p style="font-size:18px;font-weight:700;color:${goal.isPartner ? '#EC4899' : 'var(--accent)'};">${pct.toFixed(0)}%</p>
           </div>
         </div>
 
@@ -2656,18 +2860,20 @@ async function loadGoals() {
         ${projection ? `<p style="font-size:12px;color:var(--text3);margin-bottom:10px;">${projection}</p>` : ''}
 
         <div style="display:flex;gap:8px;margin-top:4px;">
+          ${!goal.isPartner ? `
           <button onclick="openContributionModal('${goal.id}', '${goal.name}', '${goal.currency}')"
-                  style="flex:1;padding:10px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font, inherit);">
+                  style="flex:1;padding:10px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
             + Abonar
-          </button>
+          </button>` : ''}
           <button onclick="viewGoalHistory('${goal.id}')"
-                  style="padding:10px 14px;background:var(--surface2);color:var(--text2);border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font, inherit);">
+                  style="flex:1;padding:10px;background:var(--surface2);color:var(--text2);border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
             Historial
           </button>
+          ${!goal.isPartner ? `
           <button onclick="deleteGoal('${goal.id}')"
-                  style="padding:10px 14px;background:var(--red-bg);color:var(--red);border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font, inherit);">
+                  style="padding:10px 14px;background:var(--red-bg);color:var(--red);border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
             🗑
-          </button>
+          </button>` : ''}
         </div>
       </div>`;
   }
@@ -3188,7 +3394,52 @@ async function renderLoansTab() {
   const el = document.getElementById('tab-loans');
   const [loans, lentList] = await Promise.all([DB.getLoans(), DB.getMoneyLent()]);
 
-  let html = `
+  // Cargar planes de cuotas de todas las tarjetas
+  const creditAccounts = state.accounts.filter(a => a.type === 'credit');
+  let allPlans = [];
+  for (const acc of creditAccounts) {
+    const { data: plans } = await sb.from('installment_plans')
+      .select('*').eq('account_id', acc.id).eq('is_active', true)
+      .order('created_at', { ascending: false });
+    if (plans && plans.length > 0) {
+      allPlans.push({ account: acc, plans });
+    }
+  }
+
+  let html = '';
+
+  // Sección de planes de cuotas
+  if (allPlans.length > 0) {
+    html += `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <p style="font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;">Planes de cuotas</p>
+      </div>`;
+    for (const { account, plans } of allPlans) {
+      html += `<p style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">${account.name}</p>`;
+      for (const p of plans) {
+        const paid = parseFloat(p.total_amount) - parseFloat(p.remaining_amount);
+        const pct  = parseFloat(p.total_amount) > 0 ? Math.min((paid / p.total_amount) * 100, 100) : 0;
+        html += `
+          <div class="card" style="padding:14px;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+              <div>
+                <p style="font-size:14px;font-weight:600;color:var(--text1);">${p.name}</p>
+                <p style="font-size:11px;color:var(--text3);">${account.currency} · ${p.installments_paid}/${p.total_installments} cuotas · ${p.interest_rate > 0 ? p.interest_rate + '% interés' : '0% interés'}</p>
+              </div>
+              <div style="text-align:right;">
+                <p style="font-size:14px;font-weight:700;color:var(--red);">${Rates.format(p.remaining_amount, account.currency)}</p>
+                <p style="font-size:11px;color:var(--text3);">${Rates.format(p.monthly_payment, account.currency)}/mes</p>
+              </div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill fill-accent" style="width:${pct}%;"></div></div>
+            <p style="font-size:11px;color:var(--text3);margin-top:4px;">${pct.toFixed(0)}% pagado · ${Rates.format(paid, account.currency)} de ${Rates.format(p.total_amount, account.currency)}</p>
+          </div>`;
+      }
+    }
+    html += `<div style="height:1px;background:var(--border);margin:14px 0;"></div>`;
+  }
+
+  html += `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <p style="font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;">Mis préstamos</p>
       <button class="btn btn-primary btn-sm" onclick="openModal('add-loan-modal')">+ Agregar</button>
@@ -3287,26 +3538,50 @@ async function deleteLoan(id) {
 }
 
 async function saveLent() {
-  const person  = document.getElementById('lent-person').value.trim();
-  const amount  = parseFloat(document.getElementById('lent-amount').value) || 0;
-  const currency= document.getElementById('lent-currency').value;
-  const date    = document.getElementById('lent-date').value;
-  const note    = document.getElementById('lent-note').value.trim();
+  const person   = document.getElementById('lent-person').value.trim();
+  const amount   = parseFloat(document.getElementById('lent-amount').value) || 0;
+  const currency = document.getElementById('lent-currency').value;
+  const date     = document.getElementById('lent-date').value || new Date().toISOString().split('T')[0];
+  const note     = document.getElementById('lent-note').value.trim();
+  const accId    = document.getElementById('lent-account').value;
   if (!person || !amount) { showToast('Ingresá el nombre y el monto', 'error'); return; }
 
+  // 1. Guardar en money_lent
   const { error } = await DB.createMoneyLent({
     person_name: person, amount, currency,
-    date_lent: date || new Date().toISOString().split('T')[0],
-    note, status: 'pending'
+    date_lent: date, note, status: 'pending',
+    account_id: accId || null
   });
   if (error) { console.error(error); showToast('Error al guardar', 'error'); return; }
+
+  // 2. Si se seleccionó una cuenta, crear transacción de gasto y descontar el saldo
+  if (accId) {
+    await DB.createTransaction({
+      account_id:    accId,
+      category_id:   null,
+      type:          'expense',
+      amount_native: amount,
+      currency,
+      amount_usd:    await Rates.toUSD(amount, currency),
+      rate_used:     currency !== 'USD' ? await Rates.getRate(currency) : 1,
+      description:   `Dinero prestado a ${person}`,
+      date,
+      notes:         note || ''
+    });
+    state.accounts = await DB.getAccounts();
+    populateAccountSelects();
+  }
+
   closeModal('add-lent-modal');
   showToast('Registrado ✓', 'success');
+  loadHomeScreen();
   renderLoansTab();
 }
 
 async function deleteLent(id) {
   if (!confirm('¿Eliminar este registro?')) return;
+  // Si tenía cuenta asociada, la transacción ya está registrada — no revertir
+  // (el dinero ya salió de la cuenta)
   await sb.from('money_lent').delete().eq('id', id);
   showToast('Eliminado', '');
   renderLoansTab();
@@ -3401,6 +3676,178 @@ async function saveEditBalance() {
   loadHomeScreen();
 }
 
+
+// ══ INSTALAR APP (Add to Home Screen) ════════════════════════
+
+let _installPrompt = null;
+
+// Capturar el evento de instalación cuando el navegador lo dispara
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _installPrompt = e;
+  // Mostrar el botón solo si hay prompt disponible (Chrome/Android)
+  const row = document.getElementById('install-app-row');
+  if (row) row.style.display = 'flex';
+});
+
+// Cuando ya está instalada, ocultar el botón
+window.addEventListener('appinstalled', () => {
+  _installPrompt = null;
+  const row = document.getElementById('install-app-row');
+  if (row) {
+    const sub = document.getElementById('install-app-sub');
+    if (sub) sub.textContent = '✓ Ya está instalada';
+    row.style.opacity = '0.5';
+    row.onclick = null;
+  }
+});
+
+async function installApp() {
+  // Android/Chrome: usar el prompt nativo
+  if (_installPrompt) {
+    _installPrompt.prompt();
+    const { outcome } = await _installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      showToast('¡App instalada! 🎉', 'success');
+      _installPrompt = null;
+    }
+    return;
+  }
+
+  // iOS Safari: no tiene prompt nativo — mostrar instrucciones
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isSafari = /safari/i.test(navigator.userAgent) && !/chrome/i.test(navigator.userAgent);
+
+  if (isIOS) {
+    // Crear modal con instrucciones para iOS
+    const existing = document.getElementById('ios-install-modal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay open';
+    modal.id = 'ios-install-modal';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `
+      <div class="modal-sheet" onclick="event.stopPropagation()">
+        <div class="drag-handle"></div>
+        <h3 style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:16px;">📲 Agregar a pantalla de inicio</h3>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;align-items:center;gap:14px;padding:12px;background:var(--surface2);border-radius:12px;">
+            <span style="font-size:28px;flex-shrink:0;">1️⃣</span>
+            <p style="font-size:14px;color:var(--text1);">Tocá el botón <strong>Compartir</strong> <span style="font-size:16px;">⬆️</span> en la barra inferior de Safari</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;padding:12px;background:var(--surface2);border-radius:12px;">
+            <span style="font-size:28px;flex-shrink:0;">2️⃣</span>
+            <p style="font-size:14px;color:var(--text1);">Deslizá hacia abajo y tocá <strong>"Agregar a pantalla de inicio"</strong></p>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;padding:12px;background:var(--surface2);border-radius:12px;">
+            <span style="font-size:28px;flex-shrink:0;">3️⃣</span>
+            <p style="font-size:14px;color:var(--text1);">Tocá <strong>"Agregar"</strong> en la esquina superior derecha</p>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:20px;" onclick="document.getElementById('ios-install-modal').remove()">Entendido</button>
+      </div>`;
+    document.body.appendChild(modal);
+    return;
+  }
+
+  // Otros navegadores — instrucción genérica
+  showToast('Usá el menú del navegador → "Instalar app" o "Agregar a inicio"', '');
+}
+
+
+// ══ PLANES DE CUOTAS ═════════════════════════════════════════
+
+let _installmentAccountId = null;
+let _installmentCurrency  = 'USD';
+
+function openAddInstallmentModal(accountId, currency) {
+  _installmentAccountId = accountId;
+  _installmentCurrency  = currency;
+  const acc = state.accounts.find(a => a.id === accountId);
+  document.getElementById('installment-card-name').textContent = acc?.name || 'Tarjeta';
+  ['inst-name','inst-total','inst-total-n','inst-paid-n'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('inst-rate').value = '0';
+  document.getElementById('inst-summary').style.display = 'none';
+  openModal('add-installment-modal');
+}
+
+function calcInstallment() {
+  const total   = parseFloat(document.getElementById('inst-total').value)   || 0;
+  const totalN  = parseInt(document.getElementById('inst-total-n').value)    || 0;
+  const paidN   = parseInt(document.getElementById('inst-paid-n').value)     || 0;
+  const summary = document.getElementById('inst-summary');
+  if (!total || !totalN) { summary.style.display = 'none'; return; }
+  const monthly   = total / totalN;
+  const remaining = Math.max(0, (totalN - paidN)) * monthly;
+  document.getElementById('inst-monthly-display').textContent   = Rates.format(monthly, _installmentCurrency);
+  document.getElementById('inst-remaining-display').textContent = Rates.format(remaining, _installmentCurrency);
+  summary.style.display = 'block';
+}
+
+async function saveInstallment() {
+  const name    = document.getElementById('inst-name').value.trim();
+  const total   = parseFloat(document.getElementById('inst-total').value)  || 0;
+  const totalN  = parseInt(document.getElementById('inst-total-n').value)  || 0;
+  const paidN   = parseInt(document.getElementById('inst-paid-n').value)   || 0;
+  const rate    = parseFloat(document.getElementById('inst-rate').value)   || 0;
+  if (!name || !total || !totalN) { showToast('Completá nombre, monto y cuotas', 'error'); return; }
+  if (paidN >= totalN) { showToast('Las cuotas pagadas no pueden ser iguales o mayores al total', 'error'); return; }
+
+  const monthly       = total / totalN;
+  const remaining     = (totalN - paidN) * monthly;
+  const { data: { user } } = await sb.auth.getUser();
+
+  // 1. Crear el plan
+  const { data: plan, error } = await sb.from('installment_plans').insert({
+    user_id:            user.id,
+    account_id:         _installmentAccountId,
+    name,
+    total_amount:       total,
+    remaining_amount:   remaining,
+    total_installments: totalN,
+    installments_paid:  paidN,
+    monthly_payment:    monthly,
+    interest_rate:      rate,
+    currency:           _installmentCurrency,
+    is_active:          true,
+    start_date:         new Date().toISOString().split('T')[0]
+  }).select().single();
+
+  if (error) { console.error(error); showToast('Error al guardar', 'error'); return; }
+
+  // 2. Sumar el monto pendiente al saldo adeudado de la tarjeta
+  const acc = state.accounts.find(a => a.id === _installmentAccountId);
+  if (acc) {
+    const newBalance = parseFloat(acc.balance) + remaining;
+    await sb.from('accounts').update({ balance: newBalance }).eq('id', _installmentAccountId);
+  }
+
+  closeModal('add-installment-modal');
+  showToast('Plan de cuotas registrado ✓', 'success');
+  state.accounts = await DB.getAccounts();
+  renderAccountsList();
+  loadHomeScreen();
+}
+
+async function deleteInstallment(planId, accountId, remainingAmount) {
+  if (!confirm('¿Eliminar este plan? El monto pendiente se descontará del saldo de la tarjeta.')) return;
+
+  // Restar el monto pendiente del saldo adeudado
+  const acc = state.accounts.find(a => a.id === accountId);
+  if (acc) {
+    const newBalance = Math.max(0, parseFloat(acc.balance) - parseFloat(remainingAmount));
+    await sb.from('accounts').update({ balance: newBalance }).eq('id', accountId);
+  }
+
+  await sb.from('installment_plans').update({ is_active: false }).eq('id', planId);
+  showToast('Plan eliminado', '');
+  state.accounts = await DB.getAccounts();
+  renderAccountsList();
+  loadHomeScreen();
+}
+
 // ══ HELPERS ══════════════════════════════════════════════════
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
@@ -3490,6 +3937,13 @@ function openModal(id) {
   if (id === 'add-lent-modal') {
     ['lent-person','lent-amount','lent-note'].forEach(i => { const el = document.getElementById(i); if(el) el.value = ''; });
     document.getElementById('lent-date').value = new Date().toISOString().split('T')[0];
+    const lentAccSel = document.getElementById('lent-account');
+    if (lentAccSel) {
+      lentAccSel.innerHTML = '<option value="">Sin cuenta — solo registrar</option>' +
+        state.accounts
+          .filter(a => a.type !== 'credit')
+          .map(a => `<option value="${a.id}">${a.name} (${a.currency})</option>`).join('');
+    }
   }
   // Limpiar formulario de negocio
   if (id === 'add-business-modal') {
